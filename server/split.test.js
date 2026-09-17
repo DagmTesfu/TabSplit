@@ -1,26 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toMinor, allocate, splitEvenly, computePersonTotals } from './split.js';
+import { allocate, splitEvenly, computePersonTotals } from './split.js';
 
 const sum = (arr) => arr.reduce((a, b) => a + b, 0);
-
-test('toMinor: valid inputs', () => {
-  assert.equal(toMinor(600), 60000);
-  assert.equal(toMinor(12.5), 1250);
-  assert.equal(toMinor(0), 0);
-  assert.equal(toMinor(0.1), 10);
-  assert.equal(toMinor('600'), 60000);
-  assert.equal(toMinor(' 12.05 '), 1205);
-  assert.equal(toMinor('45.5'), 4550);
-  assert.equal(toMinor('.99'), 99);
-  assert.equal(toMinor('0.00'), 0);
-});
-
-test('toMinor: rejects invalid amounts', () => {
-  for (const bad of [-1, -0.01, 1.234, '1.234', '-5', '12,50', '', 'abc', NaN, Infinity, null, undefined, {}, []]) {
-    assert.throws(() => toMinor(bad), Error, `should reject ${String(bad)}`);
-  }
-});
 
 test('allocate: equal weights distribute evenly with largest-remainder leftovers', () => {
   assert.deepEqual(allocate(200, [1, 1, 1]), [67, 67, 66]);
@@ -296,14 +278,6 @@ test('computePersonTotals: reordering people preserves totals when extra remaind
   const byIdA = Object.fromEntries(orderA.people.map((p) => [p.id, p.totalMinor]));
   const byIdB = Object.fromEntries(orderB.people.map((p) => [p.id, p.totalMinor]));
   assert.deepEqual(byIdA, byIdB);
-});
-
-test('toMinor: exact decimal parsing and safe-integer boundaries', () => {
-  assert.equal(toMinor('90071992547409.91'), Number.MAX_SAFE_INTEGER);
-  assert.equal(toMinor(0.29), 29);
-  for (const bad of ['90071992547409.92', 1.000000001, -0.000000001, 0.1 + 0.2, true, '1e2']) {
-    assert.throws(() => toMinor(bad));
-  }
 });
 
 test('allocate: large intermediates remain exact', () => {

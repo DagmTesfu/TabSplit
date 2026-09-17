@@ -221,6 +221,14 @@ test('route: GET returns 404 for a well-formed but unknown code', async () => {
   });
 });
 
+test('route: body over the 1 MB limit returns 413 PAYLOAD_TOO_LARGE', async () => {
+  await withServer(async (base) => {
+    const res = await post(base, { ...validBody, filler: 'x'.repeat(1024 * 1024 + 100) });
+    assert.equal(res.status, 413);
+    assert.equal((await res.json()).code, 'PAYLOAD_TOO_LARGE');
+  });
+});
+
 test('route: GET /api/bills/:code maps database failures to 503', async () => {
   const fake = fakeDb({ findError: { message: 'connection refused' } });
   await withServer(async (base) => {

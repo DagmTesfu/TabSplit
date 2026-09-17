@@ -3,9 +3,12 @@ import { pathToFileURL } from 'node:url';
 import express from 'express';
 import aiRoutes from './routes/extract.js';
 import billRoutes from './routes/bills.js';
-import { notFoundHandler, errorHandler } from './middleware/errors.js';
+import { notFoundHandler, errorHandler, requestLogger } from './middleware/errors.js';
 
 const app = express();
+
+// One short log line per request; bodies and credentials are never logged.
+app.use(requestLogger);
 
 // JSON bodies for the bills API; small cap is plenty for bill payloads.
 app.use(express.json({ limit: '1mb' }));

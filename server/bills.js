@@ -22,8 +22,6 @@ const MAX_PEOPLE = 50;
 const MAX_ITEMS = 100;
 const MAX_NAME_LENGTH = 120;
 const MAX_PERSON_NAME_LENGTH = 60;
-// Sanity cap per tax/tip field to bound abuse; real receipts stay far below.
-const MAX_EXTRA_MINOR = 1_000_000_000;
 
 // Visible ASCII except space and DEL; anything else in names is rejected.
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;

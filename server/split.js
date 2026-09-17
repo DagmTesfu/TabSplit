@@ -1,17 +1,3 @@
-export function toMinor(value) {
-  if (typeof value !== 'number' && typeof value !== 'string') {
-    throw new Error('Invalid amount');
-  }
-  const text = String(value).trim();
-  if (!/^(\d+(\.\d{1,2})?|\.\d{1,2})$/.test(text)) {
-    throw new Error('Invalid amount: use a non-negative decimal with at most 2 decimal places');
-  }
-  const [units, decimals = ''] = text.split('.');
-  const Minor = BigInt(units || '0') * 100n + BigInt(decimals.padEnd(2, '0'));
-  if (Minor > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('Amount is too large');
-  return Number(Minor);
-}
-
 function assertValidMinor(value, label) {
   if (!Number.isSafeInteger(value) || value < 0) {
     throw new Error(`${label} must be a non-negative integer number of minor units`);
