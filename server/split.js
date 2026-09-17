@@ -1,4 +1,4 @@
-export function toCents(value) {
+export function toMinor(value) {
   if (typeof value !== 'number' && typeof value !== 'string') {
     throw new Error('Invalid amount');
   }
@@ -7,30 +7,30 @@ export function toCents(value) {
     throw new Error('Invalid amount: use a non-negative decimal with at most 2 decimal places');
   }
   const [units, decimals = ''] = text.split('.');
-  const cents = BigInt(units || '0') * 100n + BigInt(decimals.padEnd(2, '0'));
-  if (cents > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('Amount is too large');
-  return Number(cents);
+  const Minor = BigInt(units || '0') * 100n + BigInt(decimals.padEnd(2, '0'));
+  if (Minor > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('Amount is too large');
+  return Number(Minor);
 }
 
-function assertValidCents(value, label) {
+function assertValidMinor(value, label) {
   if (!Number.isSafeInteger(value) || value < 0) {
-    throw new Error(`${label} must be a non-negative integer number of cents`);
+    throw new Error(`${label} must be a non-negative integer number of minor units`);
   }
   return value;
 }
 
-export function allocate(totalCents, weights) {
-  assertValidCents(totalCents, 'total');
+export function allocate(totalMinor, weights) {
+  assertValidMinor(totalMinor, 'total');
   if (!Array.isArray(weights) || weights.length === 0) {
     throw new Error('weights must be a non-empty array');
   }
   let totalWeight = 0n;
   for (const weight of weights) {
-    assertValidCents(weight, 'weight');
+    assertValidMinor(weight, 'weight');
     totalWeight += BigInt(weight);
   }
   if (totalWeight === 0n) {
-    if (totalCents > 0) throw new Error('Cannot allocate a positive amount with zero total weight');
+    if (totalMinor > 0) throw new Error('Cannot allocate a positive amount with zero total weight');
     return weights.map(() => 0);
   }
 
@@ -38,13 +38,13 @@ export function allocate(totalCents, weights) {
   const remainders = [];
   let distributed = 0;
   for (const weight of weights) {
-    const numerator = BigInt(weight) * BigInt(totalCents);
+    const numerator = BigInt(weight) * BigInt(totalMinor);
     const base = Number(numerator / totalWeight);
     shares.push(base);
     remainders.push(numerator % totalWeight);
     distributed += base;
   }
-  const leftover = totalCents - distributed;
+  const leftover = totalMinor - distributed;
   const order = remainders
     .map((remainder, index) => ({ remainder, index }))
     .sort((a, b) => {
@@ -55,15 +55,15 @@ export function allocate(totalCents, weights) {
   return shares;
 }
 
-export function splitEvenly(totalCents, count) {
-  assertValidCents(totalCents, 'total');
+export function splitEvenly(totalMinor, count) {
+  assertValidMinor(totalMinor, 'total');
   if (!Number.isSafeInteger(count) || count < 1) {
     throw new Error('count must be a positive integer');
   }
-  return allocate(totalCents, new Array(count).fill(1));
+  return allocate(totalMinor, new Array(count).fill(1));
 }
 
-export function computePersonTotals({ items, people, taxCents = 0, tipCents = 0 }) {
+export function computePersonTotals({ items, people, taxMinor = 0, tipMinor = 0 }) {
   if (!Array.isArray(people) || people.length === 0) {
     throw new Error('At least one person is required');
   }
@@ -83,7 +83,7 @@ export function computePersonTotals({ items, people, taxCents = 0, tipCents = 0 
   const totals = new Map([...peopleById.keys()].map((id) => [id, 0]));
   const unassignedItemIds = [];
   const itemIds = new Set();
-  let itemsTotalCents = 0;
+  let itemsTotalMinor = 0;
 
   for (const item of items) {
     if (!item || typeof item.id !== 'string' || item.id.trim() === '') {
@@ -93,9 +93,9 @@ export function computePersonTotals({ items, people, taxCents = 0, tipCents = 0 
     itemIds.add(item.id);
     const name = typeof item.name === 'string' ? item.name.trim() : '';
     if (name === '') throw new Error(`Item ${item.id} needs a non-empty name`);
-    const price = assertValidCents(item.priceCents, `Item "${name}" price`);
-    itemsTotalCents += price;
-    if (!Number.isSafeInteger(itemsTotalCents)) throw new Error('Items total is too large');
+    const price = assertValidMinor(item.priceMinor, `Item "${name}" price`);
+    itemsTotalMinor += price;
+    if (!Number.isSafeInteger(itemsTotalMinor)) throw new Error('Items total is too large');
 
     const assignedTo = item.assignedTo ?? [];
     if (!Array.isArray(assignedTo)) {
@@ -121,12 +121,12 @@ export function computePersonTotals({ items, people, taxCents = 0, tipCents = 0 
     });
   }
 
-  const tax = assertValidCents(taxCents, 'tax');
-  const tip = assertValidCents(tipCents, 'tip');
+  const tax = assertValidMinor(taxMinor, 'tax');
+  const tip = assertValidMinor(tipMinor, 'tip');
   const extra = tax + tip;
   if (!Number.isSafeInteger(extra)) throw new Error('Tax and tip total is too large');
 
-  const billTotalCents = assertValidCents(itemsTotalCents + extra, 'Bill total');
+  const billTotalMinor = assertValidMinor(itemsTotalMinor + extra, 'Bill total');
   const ids = [...peopleById.keys()];
   const baseTotals = ids.map((id) => totals.get(id));
   const extraShares = baseTotals.some((amount) => amount > 0)
@@ -135,19 +135,19 @@ export function computePersonTotals({ items, people, taxCents = 0, tipCents = 0 
   const personTotals = ids.map((id, index) => ({
     id,
     name: peopleById.get(id).name,
-    totalCents: baseTotals[index] + extraShares[index],
+    totalMinor: baseTotals[index] + extraShares[index],
   }));
 
-  const assignedCents = personTotals.reduce((sum, person) => sum + person.totalCents, 0);
+  const assignedMinor = personTotals.reduce((sum, person) => sum + person.totalMinor, 0);
   return {
     people: personTotals,
     unassignedItemIds,
-    itemsTotalCents,
-    taxCents: tax,
-    tipCents: tip,
-    billTotalCents,
-    assignedCents,
-    unassignedCents: billTotalCents - assignedCents,
-    fullyAssigned: unassignedItemIds.length === 0 && billTotalCents === assignedCents,
+    itemsTotalMinor,
+    taxMinor: tax,
+    tipMinor: tip,
+    billTotalMinor,
+    assignedMinor,
+    unassignedMinor: billTotalMinor - assignedMinor,
+    fullyAssigned: unassignedItemIds.length === 0 && billTotalMinor === assignedMinor,
   };
 }

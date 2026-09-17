@@ -2,9 +2,13 @@
 import { pathToFileURL } from 'node:url';
 import express from 'express';
 import aiRoutes from './routes/extract.js';
+import billRoutes from './routes/bills.js';
 import { notFoundHandler, errorHandler } from './middleware/errors.js';
 
 const app = express();
+
+// JSON bodies for the bills API; small cap is plenty for bill payloads.
+app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true });
@@ -12,6 +16,7 @@ app.get('/api/health', (req, res) => {
 
 // The router defines /extract-receipt, so mount it once at /api.
 app.use('/api', aiRoutes);
+app.use('/api', billRoutes);
 app.use('/api', notFoundHandler);
 app.use(errorHandler);
 

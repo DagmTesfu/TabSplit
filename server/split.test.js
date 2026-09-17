@@ -1,24 +1,24 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toCents, allocate, splitEvenly, computePersonTotals } from './split.js';
+import { toMinor, allocate, splitEvenly, computePersonTotals } from './split.js';
 
 const sum = (arr) => arr.reduce((a, b) => a + b, 0);
 
-test('toCents: valid inputs', () => {
-  assert.equal(toCents(600), 60000);
-  assert.equal(toCents(12.5), 1250);
-  assert.equal(toCents(0), 0);
-  assert.equal(toCents(0.1), 10);
-  assert.equal(toCents('600'), 60000);
-  assert.equal(toCents(' 12.05 '), 1205);
-  assert.equal(toCents('45.5'), 4550);
-  assert.equal(toCents('.99'), 99);
-  assert.equal(toCents('0.00'), 0);
+test('toMinor: valid inputs', () => {
+  assert.equal(toMinor(600), 60000);
+  assert.equal(toMinor(12.5), 1250);
+  assert.equal(toMinor(0), 0);
+  assert.equal(toMinor(0.1), 10);
+  assert.equal(toMinor('600'), 60000);
+  assert.equal(toMinor(' 12.05 '), 1205);
+  assert.equal(toMinor('45.5'), 4550);
+  assert.equal(toMinor('.99'), 99);
+  assert.equal(toMinor('0.00'), 0);
 });
 
-test('toCents: rejects invalid amounts', () => {
+test('toMinor: rejects invalid amounts', () => {
   for (const bad of [-1, -0.01, 1.234, '1.234', '-5', '12,50', '', 'abc', NaN, Infinity, null, undefined, {}, []]) {
-    assert.throws(() => toCents(bad), Error, `should reject ${String(bad)}`);
+    assert.throws(() => toMinor(bad), Error, `should reject ${String(bad)}`);
   }
 });
 
@@ -69,26 +69,26 @@ test('splitEvenly: basic cases', () => {
 
 test('computePersonTotals: single-person item pays full amount', () => {
   const result = computePersonTotals({
-    items: [{ id: 'pizza', name: 'Pizza', priceCents: 60000, assignedTo: ['dagm'] }],
+    items: [{ id: 'pizza', name: 'Pizza', priceMinor: 60000, assignedTo: ['dagm'] }],
     people: [{ id: 'dagm', name: 'Dagm' }],
   });
-  assert.deepEqual(result.people, [{ id: 'dagm', name: 'Dagm', totalCents: 60000 }]);
-  assert.equal(result.assignedCents, 60000);
-  assert.equal(result.billTotalCents, 60000);
-  assert.equal(result.unassignedCents, 0);
+  assert.deepEqual(result.people, [{ id: 'dagm', name: 'Dagm', totalMinor: 60000 }]);
+  assert.equal(result.assignedMinor, 60000);
+  assert.equal(result.billTotalMinor, 60000);
+  assert.equal(result.unassignedMinor, 0);
   assert.equal(result.fullyAssigned, true);
 });
 
 test('computePersonTotals: shared item splits equally', () => {
   const result = computePersonTotals({
-    items: [{ id: 'fries', name: 'Fries', priceCents: 20000, assignedTo: ['dagm', 'abel'] }],
+    items: [{ id: 'fries', name: 'Fries', priceMinor: 20000, assignedTo: ['dagm', 'abel'] }],
     people: [
       { id: 'dagm', name: 'Dagm' },
       { id: 'abel', name: 'Abel' },
     ],
   });
   assert.deepEqual(
-    result.people.map((p) => p.totalCents),
+    result.people.map((p) => p.totalMinor),
     [10000, 10000]
   );
   assert.equal(result.fullyAssigned, true);
@@ -97,117 +97,117 @@ test('computePersonTotals: shared item splits equally', () => {
 test('computePersonTotals: full example from spec with tax and tip', () => {
   const result = computePersonTotals({
     items: [
-      { id: 'pizza', name: 'Pizza', priceCents: 60000, assignedTo: ['dagm'] },
-      { id: 'burger', name: 'Burger', priceCents: 45000, assignedTo: ['abel'] },
-      { id: 'coke', name: 'Coke', priceCents: 8000, assignedTo: ['dagm'] },
-      { id: 'fries', name: 'Fries', priceCents: 20000, assignedTo: ['dagm', 'abel', 'hana'] },
+      { id: 'pizza', name: 'Pizza', priceMinor: 60000, assignedTo: ['dagm'] },
+      { id: 'burger', name: 'Burger', priceMinor: 45000, assignedTo: ['abel'] },
+      { id: 'coke', name: 'Coke', priceMinor: 8000, assignedTo: ['dagm'] },
+      { id: 'fries', name: 'Fries', priceMinor: 20000, assignedTo: ['dagm', 'abel', 'hana'] },
     ],
     people: [
       { id: 'dagm', name: 'Dagm' },
       { id: 'abel', name: 'Abel' },
       { id: 'hana', name: 'Hana' },
     ],
-    taxCents: 1330,
-    tipCents: 2660,
+    taxMinor: 1330,
+    tipMinor: 2660,
   });
   const dagm = result.people.find((p) => p.id === 'dagm');
   const abel = result.people.find((p) => p.id === 'abel');
   const hana = result.people.find((p) => p.id === 'hana');
-  assert.equal(dagm.totalCents, 76907);
-  assert.equal(abel.totalCents, 53217);
-  assert.equal(hana.totalCents, 6866);
-  assert.equal(sum(result.people.map((p) => p.totalCents)), result.billTotalCents);
-  assert.equal(result.billTotalCents, 133000 + 1330 + 2660);
+  assert.equal(dagm.totalMinor, 76907);
+  assert.equal(abel.totalMinor, 53217);
+  assert.equal(hana.totalMinor, 6866);
+  assert.equal(sum(result.people.map((p) => p.totalMinor)), result.billTotalMinor);
+  assert.equal(result.billTotalMinor, 133000 + 1330 + 2660);
   assert.equal(result.fullyAssigned, true);
 });
 
 test('computePersonTotals: tax and tip go only to people with assigned items', () => {
   const result = computePersonTotals({
-    items: [{ id: 'pizza', name: 'Pizza', priceCents: 10000, assignedTo: ['dagm'] }],
+    items: [{ id: 'pizza', name: 'Pizza', priceMinor: 10000, assignedTo: ['dagm'] }],
     people: [
       { id: 'dagm', name: 'Dagm' },
       { id: 'abel', name: 'Abel' },
       { id: 'hana', name: 'Hana' },
     ],
-    taxCents: 1500,
-    tipCents: 500,
+    taxMinor: 1500,
+    tipMinor: 500,
   });
   const dagm = result.people.find((p) => p.id === 'dagm');
-  assert.equal(dagm.totalCents, 10000 + 1500 + 500);
-  assert.equal(result.people.find((p) => p.id === 'abel').totalCents, 0);
-  assert.equal(result.people.find((p) => p.id === 'hana').totalCents, 0);
-  assert.equal(result.assignedCents, result.billTotalCents);
+  assert.equal(dagm.totalMinor, 10000 + 1500 + 500);
+  assert.equal(result.people.find((p) => p.id === 'abel').totalMinor, 0);
+  assert.equal(result.people.find((p) => p.id === 'hana').totalMinor, 0);
+  assert.equal(result.assignedMinor, result.billTotalMinor);
 });
 
 test('computePersonTotals: tax and tip reconcile exactly via largest remainder', () => {
   const result = computePersonTotals({
     items: [
-      { id: 'a', name: 'A', priceCents: 333, assignedTo: ['dagm', 'abel'] },
-      { id: 'b', name: 'B', priceCents: 333, assignedTo: ['hana'] },
+      { id: 'a', name: 'A', priceMinor: 333, assignedTo: ['dagm', 'abel'] },
+      { id: 'b', name: 'B', priceMinor: 333, assignedTo: ['hana'] },
     ],
     people: [
       { id: 'dagm', name: 'Dagm' },
       { id: 'abel', name: 'Abel' },
       { id: 'hana', name: 'Hana' },
     ],
-    taxCents: 7,
-    tipCents: 0,
+    taxMinor: 7,
+    tipMinor: 0,
   });
-  assert.equal(sum(result.people.map((p) => p.totalCents)), 666 + 7);
+  assert.equal(sum(result.people.map((p) => p.totalMinor)), 666 + 7);
   assert.equal(result.fullyAssigned, true);
 });
 
 test('computePersonTotals: unassigned items are reported and excluded from totals', () => {
   const result = computePersonTotals({
     items: [
-      { id: 'pizza', name: 'Pizza', priceCents: 60000, assignedTo: ['dagm'] },
-      { id: 'mystery', name: 'Mystery', priceCents: 9000, assignedTo: [] },
+      { id: 'pizza', name: 'Pizza', priceMinor: 60000, assignedTo: ['dagm'] },
+      { id: 'mystery', name: 'Mystery', priceMinor: 9000, assignedTo: [] },
     ],
     people: [{ id: 'dagm', name: 'Dagm' }],
-    taxCents: 1000,
+    taxMinor: 1000,
   });
   assert.deepEqual(result.unassignedItemIds, ['mystery']);
-  assert.equal(result.itemsTotalCents, 69000);
-  assert.equal(result.assignedCents, 61000);
-  assert.equal(result.unassignedCents, 9000);
-  assert.equal(result.assignedCents + result.unassignedCents, result.billTotalCents);
+  assert.equal(result.itemsTotalMinor, 69000);
+  assert.equal(result.assignedMinor, 61000);
+  assert.equal(result.unassignedMinor, 9000);
+  assert.equal(result.assignedMinor + result.unassignedMinor, result.billTotalMinor);
   assert.equal(result.fullyAssigned, false);
 });
 
-test('computePersonTotals: if nothing is assigned, tax/tip flow into unassigned cents', () => {
+test('computePersonTotals: if nothing is assigned, tax/tip flow into unassigned minor units', () => {
   const result = computePersonTotals({
-    items: [{ id: 'pizza', name: 'Pizza', priceCents: 60000, assignedTo: [] }],
+    items: [{ id: 'pizza', name: 'Pizza', priceMinor: 60000, assignedTo: [] }],
     people: [
       { id: 'dagm', name: 'Dagm' },
       { id: 'abel', name: 'Abel' },
     ],
-    taxCents: 500,
+    taxMinor: 500,
   });
   assert.deepEqual(result.unassignedItemIds, ['pizza']);
-  assert.deepEqual(result.people.map((p) => p.totalCents), [0, 0]);
-  assert.equal(result.unassignedCents, 60500);
+  assert.deepEqual(result.people.map((p) => p.totalMinor), [0, 0]);
+  assert.equal(result.unassignedMinor, 60500);
   assert.equal(result.fullyAssigned, false);
 });
 
 test('computePersonTotals: missing assignedTo defaults to unassigned', () => {
   const result = computePersonTotals({
-    items: [{ id: 'coke', name: 'Coke', priceCents: 800 }],
+    items: [{ id: 'coke', name: 'Coke', priceMinor: 800 }],
     people: [{ id: 'dagm', name: 'Dagm' }],
   });
   assert.deepEqual(result.unassignedItemIds, ['coke']);
-  assert.equal(result.people[0].totalCents, 0);
-  assert.equal(result.unassignedCents, 800);
+  assert.equal(result.people[0].totalMinor, 0);
+  assert.equal(result.unassignedMinor, 800);
 });
 
 test('computePersonTotals: zero-price items are valid and assignable', () => {
   const result = computePersonTotals({
-    items: [{ id: 'free', name: 'Promo water', priceCents: 0, assignedTo: ['dagm', 'abel'] }],
+    items: [{ id: 'free', name: 'Promo water', priceMinor: 0, assignedTo: ['dagm', 'abel'] }],
     people: [
       { id: 'dagm', name: 'Dagm' },
       { id: 'abel', name: 'Abel' },
     ],
   });
-  assert.deepEqual(result.people.map((p) => p.totalCents), [0, 0]);
+  assert.deepEqual(result.people.map((p) => p.totalMinor), [0, 0]);
   assert.equal(result.fullyAssigned, true);
 });
 
@@ -219,7 +219,7 @@ test('computePersonTotals: rejects invalid data', () => {
   const validItem = (over = {}) => ({
     id: 'pizza',
     name: 'Pizza',
-    priceCents: 60000,
+    priceMinor: 60000,
     assignedTo: ['dagm'],
     ...over,
   });
@@ -249,11 +249,11 @@ test('computePersonTotals: rejects invalid data', () => {
     Error
   );
   assert.throws(
-    () => computePersonTotals({ items: [validItem({ priceCents: -1 })], people }),
+    () => computePersonTotals({ items: [validItem({ priceMinor: -1 })], people }),
     Error
   );
   assert.throws(
-    () => computePersonTotals({ items: [validItem({ priceCents: 10.5 })], people }),
+    () => computePersonTotals({ items: [validItem({ priceMinor: 10.5 })], people }),
     Error
   );
   assert.throws(
@@ -268,14 +268,14 @@ test('computePersonTotals: rejects invalid data', () => {
     () => computePersonTotals({ items: [validItem({ assignedTo: 'dagm' })], people }),
     Error
   );
-  assert.throws(() => computePersonTotals({ items: [validItem()], people, taxCents: -5 }), Error);
-  assert.throws(() => computePersonTotals({ items: [validItem()], people, tipCents: 1.5 }), Error);
+  assert.throws(() => computePersonTotals({ items: [validItem()], people, taxMinor: -5 }), Error);
+  assert.throws(() => computePersonTotals({ items: [validItem()], people, tipMinor: 1.5 }), Error);
 });
 
 test('computePersonTotals: reordering people preserves totals when extra remainders do not tie', () => {
   const items = [
-    { id: 'a', name: 'A', priceCents: 1001, assignedTo: ['p1', 'p2'] },
-    { id: 'b', name: 'B', priceCents: 1001, assignedTo: ['p2'] },
+    { id: 'a', name: 'A', priceMinor: 1001, assignedTo: ['p1', 'p2'] },
+    { id: 'b', name: 'B', priceMinor: 1001, assignedTo: ['p2'] },
   ];
   const orderA = computePersonTotals({
     items,
@@ -283,7 +283,7 @@ test('computePersonTotals: reordering people preserves totals when extra remaind
       { id: 'p1', name: 'One' },
       { id: 'p2', name: 'Two' },
     ],
-    taxCents: 7,
+    taxMinor: 7,
   });
   const orderB = computePersonTotals({
     items,
@@ -291,18 +291,18 @@ test('computePersonTotals: reordering people preserves totals when extra remaind
       { id: 'p2', name: 'Two' },
       { id: 'p1', name: 'One' },
     ],
-    taxCents: 7,
+    taxMinor: 7,
   });
-  const byIdA = Object.fromEntries(orderA.people.map((p) => [p.id, p.totalCents]));
-  const byIdB = Object.fromEntries(orderB.people.map((p) => [p.id, p.totalCents]));
+  const byIdA = Object.fromEntries(orderA.people.map((p) => [p.id, p.totalMinor]));
+  const byIdB = Object.fromEntries(orderB.people.map((p) => [p.id, p.totalMinor]));
   assert.deepEqual(byIdA, byIdB);
 });
 
-test('toCents: exact decimal parsing and safe-integer boundaries', () => {
-  assert.equal(toCents('90071992547409.91'), Number.MAX_SAFE_INTEGER);
-  assert.equal(toCents(0.29), 29);
+test('toMinor: exact decimal parsing and safe-integer boundaries', () => {
+  assert.equal(toMinor('90071992547409.91'), Number.MAX_SAFE_INTEGER);
+  assert.equal(toMinor(0.29), 29);
   for (const bad of ['90071992547409.92', 1.000000001, -0.000000001, 0.1 + 0.2, true, '1e2']) {
-    assert.throws(() => toCents(bad));
+    assert.throws(() => toMinor(bad));
   }
 });
 
@@ -331,31 +331,31 @@ test('splitEvenly: exhaustive small splits reconcile and favor earlier indices',
 
 test('computePersonTotals: rejects duplicate item ids, blank ids and overflowing totals', () => {
   const people = [{ id: 'p', name: 'Person' }];
-  const item = { id: 'i', name: 'Item', priceCents: Number.MAX_SAFE_INTEGER, assignedTo: ['p'] };
+  const item = { id: 'i', name: 'Item', priceMinor: Number.MAX_SAFE_INTEGER, assignedTo: ['p'] };
   assert.throws(() => computePersonTotals({ people, items: [item, item] }), /Duplicate item id/);
   assert.throws(() => computePersonTotals({ people, items: [{ ...item, id: ' ' }] }), /non-empty id/);
   assert.throws(() => computePersonTotals({ people: [{ id: ' ', name: 'Person' }], items: [] }), /non-empty id/);
-  assert.throws(() => computePersonTotals({ people, items: [item], taxCents: 1 }), /Bill total/);
-  assert.throws(() => computePersonTotals({ people, items: [item, { ...item, id: 'j', priceCents: 1 }] }), /Items total/);
-  assert.throws(() => computePersonTotals({ people, items: [], taxCents: Number.MAX_SAFE_INTEGER, tipCents: 1 }), /Tax and tip total/);
+  assert.throws(() => computePersonTotals({ people, items: [item], taxMinor: 1 }), /Bill total/);
+  assert.throws(() => computePersonTotals({ people, items: [item, { ...item, id: 'j', priceMinor: 1 }] }), /Items total/);
+  assert.throws(() => computePersonTotals({ people, items: [], taxMinor: Number.MAX_SAFE_INTEGER, tipMinor: 1 }), /Tax and tip total/);
 });
 
 test('computePersonTotals: zero-price unassigned items still require assignment', () => {
   const result = computePersonTotals({
     people: [{ id: 'p', name: 'Person' }],
-    items: [{ id: 'i', name: 'Free water', priceCents: 0 }],
+    items: [{ id: 'i', name: 'Free water', priceMinor: 0 }],
   });
-  assert.equal(result.unassignedCents, 0);
+  assert.equal(result.unassignedMinor, 0);
   assert.deepEqual(result.unassignedItemIds, ['i']);
   assert.equal(result.fullyAssigned, false);
 });
 
 test('computePersonTotals: empty items and extras without a paid subtotal', () => {
   const people = [{ id: 'p', name: 'Person' }];
-  assert.equal(computePersonTotals({ people, items: [] }).billTotalCents, 0);
-  const result = computePersonTotals({ people, items: [], tipCents: 10 });
-  assert.equal(result.assignedCents, 0);
-  assert.equal(result.unassignedCents, 10);
+  assert.equal(computePersonTotals({ people, items: [] }).billTotalMinor, 0);
+  const result = computePersonTotals({ people, items: [], tipMinor: 10 });
+  assert.equal(result.assignedMinor, 0);
+  assert.equal(result.unassignedMinor, 10);
   assert.equal(result.fullyAssigned, false);
 });
 
@@ -366,25 +366,25 @@ test('computePersonTotals: duplicate names stay distinct and frozen inputs are n
       Object.freeze({ id: 'p2', name: 'Alex' }),
     ]),
     items: Object.freeze([
-      Object.freeze({ id: 'i', name: 'Item', priceCents: 1, assignedTo: Object.freeze(['p2', 'p1']) }),
+      Object.freeze({ id: 'i', name: 'Item', priceMinor: 1, assignedTo: Object.freeze(['p2', 'p1']) }),
     ]),
   });
   const result = computePersonTotals(bill);
   assert.deepEqual(result.people, [
-    { id: 'p1', name: 'Alex', totalCents: 0 },
-    { id: 'p2', name: 'Alex', totalCents: 1 },
+    { id: 'p1', name: 'Alex', totalMinor: 0 },
+    { id: 'p2', name: 'Alex', totalMinor: 1 },
   ]);
   assert.equal(bill.people[0].name, ' Alex ');
   assert.deepEqual(computePersonTotals(bill), result);
 });
 
-test('computePersonTotals: tied extra cents follow people input order', () => {
+test('computePersonTotals: tied extra minor units follow people input order', () => {
   const people = [{ id: 'p1', name: 'One' }, { id: 'p2', name: 'Two' }];
-  const items = [{ id: 'i', name: 'Item', priceCents: 2, assignedTo: ['p1', 'p2'] }];
-  assert.deepEqual(computePersonTotals({ people, items, taxCents: 1 }).people.map((p) => p.totalCents), [2, 1]);
-  assert.deepEqual(computePersonTotals({ people: [...people].reverse(), items, taxCents: 1 }).people, [
-    { id: 'p2', name: 'Two', totalCents: 2 },
-    { id: 'p1', name: 'One', totalCents: 1 },
+  const items = [{ id: 'i', name: 'Item', priceMinor: 2, assignedTo: ['p1', 'p2'] }];
+  assert.deepEqual(computePersonTotals({ people, items, taxMinor: 1 }).people.map((p) => p.totalMinor), [2, 1]);
+  assert.deepEqual(computePersonTotals({ people: [...people].reverse(), items, taxMinor: 1 }).people, [
+    { id: 'p2', name: 'Two', totalMinor: 2 },
+    { id: 'p1', name: 'One', totalMinor: 1 },
   ]);
 });
 
@@ -402,19 +402,19 @@ test('property: reconciliation holds for many randomized bills', () => {
     const items = Array.from({ length: 1 + rand(6) }, (_, i) => ({
       id: `i${i}`,
       name: `Item ${i}`,
-      priceCents: rand(25000),
+      priceMinor: rand(25000),
       assignedTo: people.filter(() => rand(3) !== 0).map((p) => p.id),
     }));
     const result = computePersonTotals({
       items,
       people,
-      taxCents: rand(3000),
-      tipCents: rand(2000),
+      taxMinor: rand(3000),
+      tipMinor: rand(2000),
     });
-    assert.equal(sum(result.people.map((p) => p.totalCents)), result.assignedCents);
-    assert.equal(result.assignedCents + result.unassignedCents, result.billTotalCents);
-    assert.ok(result.people.every((p) => p.totalCents >= 0));
-    assert.equal(result.unassignedCents, sum(items.filter((item) => item.assignedTo.length === 0).map((item) => item.priceCents)) + (result.assignedCents === 0 ? result.taxCents + result.tipCents : 0));
-    assert.equal(result.fullyAssigned, result.unassignedItemIds.length === 0 && result.unassignedCents === 0);
+    assert.equal(sum(result.people.map((p) => p.totalMinor)), result.assignedMinor);
+    assert.equal(result.assignedMinor + result.unassignedMinor, result.billTotalMinor);
+    assert.ok(result.people.every((p) => p.totalMinor >= 0));
+    assert.equal(result.unassignedMinor, sum(items.filter((item) => item.assignedTo.length === 0).map((item) => item.priceMinor)) + (result.assignedMinor === 0 ? result.taxMinor + result.tipMinor : 0));
+    assert.equal(result.fullyAssigned, result.unassignedItemIds.length === 0 && result.unassignedMinor === 0);
   }
 });
