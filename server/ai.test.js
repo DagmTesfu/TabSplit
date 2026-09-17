@@ -2,11 +2,11 @@
 import { test, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import app from './index.js';
-import { detectImageType, normalizeReceiptData, AiError, extractReceipt, MAX_IMAGE_BYTES } from './ai.js';
+import { assertSupportedCurrency, detectImageType, normalizeReceiptData, AiError, extractReceipt, MAX_IMAGE_BYTES } from './ai.js';
 
 const realFetch = globalThis.fetch;
 const originalEnvironment = Object.fromEntries(
-  ['OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'OPENAI_VISION_MODEL'].map((key) => [key, process.env[key]])
+  ['OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'OPENAI_VISION_MODEL', 'PORT'].map((key) => [key, process.env[key]])
 );
 // Signatures exercise sniffing only, not image decoding or live OCR quality.
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
@@ -14,7 +14,7 @@ const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const WEBP = Buffer.from('RIFF\x00\x00\x00\x00WEBP', 'latin1');
 const TEXT = Buffer.from('not an image');
 const receipt = { restaurantName: 'Kaldi', items: [{ name: 'Coffee', price: '40.00' }] };
-const normalized = { restaurantName: 'Kaldi', items: [{ name: 'Coffee', priceCents: 4000 }] };
+const normalized = { restaurantName: 'Kaldi', currency: 'ETB', items: [{ name: 'Coffee', priceMinor: 4000 }] };
 
 beforeEach(() => {
   mock.method(globalThis, 'fetch', async () => {
@@ -37,12 +37,15 @@ function fakeReply(content, finish_reason = 'stop') {
 
 function provider(reply = fakeReply(JSON.stringify(receipt))) {
   process.env.OPENROUTER_API_KEY = 'test-only-key';
-  return mock.method(globalThis, 'fetch', async (url) => {
+  return mock.method(globalThis, 'fetch', async (url, options) => {
     // Never intercept the local HTTP client: these tests must reach Express.
     assert.equal(url, 'https://openrouter.ai/api/v1/chat/completions');
+    // Surface the outgoing prompt so tests can assert currency propagation.
+    lastPrompt = JSON.parse(options.body).messages[0].content;
     return { ok: true, status: 200, text: async () => JSON.stringify(reply) };
   });
 }
+let lastPrompt = '';
 
 async function withServer(run) {
   const server = app.listen(0, '127.0.0.1');
@@ -58,8 +61,9 @@ async function withServer(run) {
   }
 }
 
-function uploadForm(type = 'image/jpeg', bytes = JPEG, field = 'image') {
+function uploadForm({ type = 'image/jpeg', bytes = JPEG, field = 'image', currency } = {}) {
   const form = new FormData();
+  if (currency !== null) form.append('currency', currency ?? 'ETB');
   form.append(field, new Blob([bytes], { type }), 'receipt.jpg');
   return form;
 }
@@ -79,33 +83,49 @@ test('signatures: JPEG, PNG, WebP supported; HEIC and non-images rejected', () =
   }
 });
 
-test('normalization: trimmed names and exact integer cents, including zero', () => {
-  assert.deepEqual(normalizeReceiptData({ restaurantName: ' R ', items: [
-    { name: ' Pizza ', price: 600 }, { name: 'Drink', price: '1,234.50' },
-    { name: 'Water', price: 0 }, { name: 'Small', price: '.29' },
-  ] }), { restaurantName: 'R', items: [
-    { name: 'Pizza', priceCents: 60000 }, { name: 'Drink', priceCents: 123450 },
-    { name: 'Water', priceCents: 0 }, { name: 'Small', priceCents: 29 },
-  ] });
-  assert.equal(normalizeReceiptData({ items: receipt.items }).restaurantName, '');
-  assert.equal(normalizeReceiptData({ items: [{ name: 'Big', price: '90071992547409.91' }] }).items[0].priceCents, Number.MAX_SAFE_INTEGER);
+test('currency: ETB and USD supported, missing/unsupported rejected with stable code', () => {
+  assert.deepEqual(assertSupportedCurrency('ETB'), { code: 'ETB', minorUnits: 2 });
+  assert.deepEqual(assertSupportedCurrency('usd'), { code: 'USD', minorUnits: 2 });
+  assert.deepEqual(assertSupportedCurrency(' USD '), { code: 'USD', minorUnits: 2 });
+  for (const bad of [undefined, null, '', '  ', 'us', 'USDT', 'eur', 'EUR', 'GBP', 840, {}, ['USD']]) {
+    assert.throws(() => assertSupportedCurrency(bad), (error) => error instanceof AiError && error.code === 'INVALID_CURRENCY');
+  }
+});
+
+test('currency: lowercase and padded input are normalized, never trusted verbatim', () => {
+  assert.equal(normalizeReceiptData(receipt, 'usd').currency, 'USD');
+  assert.equal(normalizeReceiptData(receipt, ' etb ').currency, 'ETB');
+});
+
+test('normalization: trimmed names, currency echo, and exact minor units', () => {
+  assert.deepEqual(
+    normalizeReceiptData({ restaurantName: ' R ', items: [
+      { name: ' CEVICHE ', price: 16.95 }, { name: 'Drink', price: '1,234.50' },
+      { name: 'Water', price: 0 }, { name: 'Small', price: '.29' },
+    ] }, 'USD'),
+    { restaurantName: 'R', currency: 'USD', items: [
+      { name: 'CEVICHE', priceMinor: 1695 }, { name: 'Drink', priceMinor: 123450 },
+      { name: 'Water', priceMinor: 0 }, { name: 'Small', priceMinor: 29 },
+    ] });
+  assert.equal(normalizeReceiptData({ items: receipt.items }, 'ETB').restaurantName, '');
+  assert.equal(normalizeReceiptData({ items: [{ name: 'Big', price: '90071992547409.91' }] }, 'ETB').items[0].priceMinor, Number.MAX_SAFE_INTEGER);
 });
 
 test('normalization: rejects invalid structure, names, unknown fields and missing prices', () => {
   const invalid = [null, [], 'text', {}, { items: [] }, { items: 'text' },
     { ...receipt, restaurantName: 42 }, { ...receipt, restaurantName: 'x'.repeat(121) },
-    { ...receipt, total: 10 }, { items: [null] }, { items: ['Pizza'] },
+    { ...receipt, currency: 'USD' }, { ...receipt, total: 10 }, { items: [null] }, { items: ['Pizza'] },
     { items: [{ name: '', price: 1 }] }, { items: [{ name: ' ', price: 1 }] },
     { items: [{ name: 12, price: 1 }] }, { items: [{ name: 'x'.repeat(121), price: 1 }] },
     { items: [{ name: 'x\u0000y', price: 1 }] }, { items: [{ price: 1 }] },
-    { items: [{ name: 'Pizza' }] }, { items: [{ name: 'Pizza', priceCents: 10 }] },
+    { items: [{ name: 'Pizza' }] }, { items: [{ name: 'Pizza', priceMinor: 10 }] },
     { items: [{ name: 'Pizza', price: 10, confidence: 1 }] },
     { items: new Array(1) },
   ];
-  for (const data of invalid) assert.throws(() => normalizeReceiptData(data), AiError);
+  for (const data of invalid) assert.throws(() => normalizeReceiptData(data, 'ETB'), AiError);
 });
 
-test('normalization: rejects negatives, fractional cents, bad separators and overflow', () => {
+test('normalization: rejects negatives, fractional minor units, bad separators and overflow', () => {
   for (const price of [-1, '-1', 1.234, '1.234', '12,50', '1,,000', '1 00', '1,23,456',
     NaN, Infinity, null, undefined, {}, [], true, '', 'abc', '1e2', '90071992547409.92']) {
     assert.throws(() => normalizeReceiptData({ items: [{ name: 'Pizza', price }] }),
@@ -116,28 +136,36 @@ test('normalization: rejects negatives, fractional cents, bad separators and ove
 test('normalization: item count capped and input is not mutated', () => {
   const item = Object.freeze({ name: ' X ', price: '1.00' });
   const data = Object.freeze({ items: Object.freeze([item]) });
-  assert.equal(normalizeReceiptData(data).items[0].name, 'X');
+  assert.equal(normalizeReceiptData(data, 'ETB').items[0].name, 'X');
   assert.equal(item.name, ' X ');
-  assert.equal(normalizeReceiptData({ items: Array(100).fill(item) }).items.length, 100);
-  assert.throws(() => normalizeReceiptData({ items: Array(101).fill(item) }), /Too many/);
+  assert.equal(normalizeReceiptData({ items: Array(100).fill(item) }, 'ETB').items.length, 100);
+  assert.throws(() => normalizeReceiptData({ items: Array(101).fill(item) }, 'ETB'), /Too many/);
 });
 
 test('extraction: image validation runs before external calls', async () => {
   const mocked = provider();
-  await assert.rejects(() => extractReceipt(TEXT, 'image/png'), /corrupted/);
-  await assert.rejects(() => extractReceipt(JPEG, 'image/png'), /do not match/);
-  await assert.rejects(() => extractReceipt(Buffer.alloc(MAX_IMAGE_BYTES + 1), 'image/jpeg'), /too large/);
+  await assert.rejects(() => extractReceipt(TEXT, 'image/png', 'USD'), /corrupted/);
+  await assert.rejects(() => extractReceipt(JPEG, 'image/png', 'USD'), /do not match/);
+  await assert.rejects(() => extractReceipt(Buffer.alloc(MAX_IMAGE_BYTES + 1), 'image/jpeg', 'USD'), /too large/);
   assert.equal(mocked.mock.callCount(), 0);
 });
 
 test('extraction: missing credentials produce NOT_CONFIGURED', async () => {
   delete process.env.OPENROUTER_API_KEY;
-  await assert.rejects(() => extractReceipt(JPEG, 'image/jpeg'), { code: 'NOT_CONFIGURED' });
+  await assert.rejects(() => extractReceipt(JPEG, 'image/jpeg', 'USD'), { code: 'NOT_CONFIGURED' });
+});
+
+test('extraction: invalid currency is rejected before any image or provider work', async () => {
+  const mocked = provider();
+  await assert.rejects(() => extractReceipt(JPEG, 'image/jpeg', 'EUR'), { code: 'INVALID_CURRENCY' });
+  await assert.rejects(() => extractReceipt(JPEG, 'image/jpeg', ''), { code: 'INVALID_CURRENCY' });
+  await assert.rejects(() => extractReceipt(JPEG, 'image/jpeg', undefined), { code: 'INVALID_CURRENCY' });
+  assert.equal(mocked.mock.callCount(), 0);
 });
 
 test('extraction: provider receives validated bytes and returns normalized JSON', async () => {
   const mocked = provider();
-  assert.deepEqual(await extractReceipt(JPEG, 'image/jpeg'), normalized);
+  assert.deepEqual(await extractReceipt(JPEG, 'image/jpeg', 'ETB'), normalized);
   const options = mocked.mock.calls[0].arguments[1];
   const body = JSON.parse(options.body);
   assert.equal(options.headers.Authorization, 'Bearer test-only-key');
@@ -146,6 +174,17 @@ test('extraction: provider receives validated bytes and returns normalized JSON'
   assert.equal(body.store, false);
   assert.equal(body.messages[1].content[0].image_url.url, `data:image/jpeg;base64,${JPEG.toString('base64')}`);
   assert.ok(options.signal instanceof AbortSignal);
+});
+
+test('extraction: user-selected currency is injected into the provider prompt', async () => {
+  for (const currency of ['USD', 'ETB']) {
+    const mocked = provider(fakeReply(JSON.stringify({ restaurantName: 'R', items: [{ name: 'X', price: '1.00' }] })));
+    await extractReceipt(JPEG, 'image/jpeg', currency);
+    mocked.mock.restore();
+    assert.match(lastPrompt, /already been selected by the user: (USD|ETB)/);
+    assert.match(lastPrompt, /Do not detect, infer, convert, or change the currency/);
+    assert.match(lastPrompt, /Do not estimate missing digits/);
+  }
 });
 
 test('extraction: refuses fenced JSON, prose, arrays, truncation and invalid content types', async () => {
@@ -157,7 +196,7 @@ test('extraction: refuses fenced JSON, prose, arrays, truncation and invalid con
   ];
   for (const reply of replies) {
     const mocked = provider(reply);
-    await assert.rejects(() => extractReceipt(JPEG, 'image/jpeg'), { code: 'INVALID_RESPONSE' });
+    await assert.rejects(() => extractReceipt(JPEG, 'image/jpeg', 'ETB'), { code: 'INVALID_RESPONSE' });
     mocked.mock.restore();
   }
 });
@@ -173,11 +212,11 @@ test('route: rejects invalid MIME, spoofed content, wrong fields and missing ima
   const mocked = provider();
   await withServer(async (base) => {
     for (const [form, code] of [
-      [uploadForm('application/pdf', TEXT), 'INVALID_UPLOAD'],
-      [uploadForm('image/heic', TEXT), 'INVALID_UPLOAD'],
-      [uploadForm('image/png', TEXT), 'INVALID_IMAGE'],
-      [uploadForm('image/png', JPEG), 'INVALID_IMAGE'],
-      [uploadForm('image/jpeg', JPEG, 'wrong'), 'INVALID_UPLOAD'],
+      [uploadForm({ type: 'application/pdf', bytes: TEXT }), 'INVALID_UPLOAD'],
+      [uploadForm({ type: 'image/heic', bytes: TEXT }), 'INVALID_UPLOAD'],
+      [uploadForm({ type: 'image/png', bytes: TEXT }), 'INVALID_IMAGE'],
+      [uploadForm({ type: 'image/png', bytes: JPEG }), 'INVALID_IMAGE'],
+      [uploadForm({ type: 'image/jpeg', bytes: JPEG, field: 'wrong' }), 'INVALID_UPLOAD'],
       [new FormData(), 'NO_FILE'],
     ]) {
       const res = await post(base, form);
@@ -191,7 +230,7 @@ test('route: rejects invalid MIME, spoofed content, wrong fields and missing ima
 test('route: enforces size limit and rejects multiple files or extra fields', async () => {
   const mocked = provider();
   await withServer(async (base) => {
-    const big = await post(base, uploadForm('image/jpeg', Buffer.alloc(MAX_IMAGE_BYTES + 1)));
+    const big = await post(base, uploadForm({ bytes: Buffer.alloc(MAX_IMAGE_BYTES + 1) }));
     assert.equal(big.status, 413);
     assert.equal((await big.json()).code, 'IMAGE_TOO_LARGE');
     const two = uploadForm();
@@ -226,12 +265,48 @@ test('route: missing configuration returns 503', async () => {
 test('route: complete multipart to mocked AI to normalized response', async () => {
   const mocked = provider();
   await withServer(async (base) => {
-    const res = await post(base);
+    const res = await post(base, uploadForm({ currency: 'ETB' }));
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('cache-control'), 'no-store');
     assert.deepEqual(await res.json(), normalized);
   });
   assert.equal(mocked.mock.callCount(), 1);
+});
+
+test('route: USD request echoes server-validated currency and minor units', async () => {
+  provider(fakeReply(JSON.stringify({ restaurantName: 'Kaldi', items: [{ name: 'Coffee', price: '4.00' }] })));
+  await withServer(async (base) => {
+    const res = await post(base, uploadForm({ currency: 'usd' }));
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { restaurantName: 'Kaldi', currency: 'USD', items: [{ name: 'Coffee', priceMinor: 400 }] });
+  });
+});
+
+test('route: unsupported and missing currency rejected before any provider call', async () => {
+  const mocked = provider();
+  await withServer(async (base) => {
+    for (const form of [uploadForm({ currency: 'EUR' }), uploadForm({ currency: 'usdt' }), uploadForm({ currency: null })]) {
+      const res = await post(base, form);
+      assert.equal(res.status, 400);
+      const body = await res.json();
+      assert.equal(body.code, 'INVALID_CURRENCY');
+      assert.match(body.error, /supported currency/i);
+    }
+  });
+  assert.equal(mocked.mock.callCount(), 0);
+});
+
+test('route: provider decimal price converts exactly, including the $16.95 example', async () => {
+  provider(fakeReply(JSON.stringify({ restaurantName: 'La Mar', items: [{ name: 'CEVICHE DE CAMARONES', price: '16.95' }] })));
+  await withServer(async (base) => {
+    const res = await post(base, uploadForm({ currency: 'USD' }));
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), {
+      restaurantName: 'La Mar',
+      currency: 'USD',
+      items: [{ name: 'CEVICHE DE CAMARONES', priceMinor: 1695 }],
+    });
+  });
 });
 
 test('route: invalid AI prices reject the entire extraction with 422', async () => {
