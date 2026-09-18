@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 export default function ScanPage() {
+  const [currency, setCurrency] = useState("ETB");
   return (
     <div className="page">
       <h1 className="title">Scan Receipt</h1>
@@ -9,6 +10,18 @@ export default function ScanPage() {
         Upload or snap a photo of your receipt to start itemizing.
       </p>
 
+
+    <label htmlFor="currency">Currency</label>
+
+    <select
+      id="currency"
+      value={currency}
+      onChange={(event) => setCurrency(event.target.value)}
+    >
+      <option value="ETB">ETB</option>
+      <option value="USD">USD</option>
+    </select>
+    
       <div className="placeholder-card">
         <div className="placeholder-icon">📸</div>
         <p style={{ fontWeight: 600, marginBottom: 8 }}>Receipt Scanner</p>
