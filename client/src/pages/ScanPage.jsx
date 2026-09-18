@@ -5,6 +5,9 @@ export default function ScanPage() {
   const [currency, setCurrency] = useState("ETB");
   const [receiptFile, setReceiptFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [fileError, setFileError] = useState(null);
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+  const maxSize = 5 * 1024 * 1024;
 
    useEffect(() => {
         if(!receiptFile){
@@ -48,13 +51,38 @@ export default function ScanPage() {
     accept='image/jpeg,image/png,image/webp'
     capture="environment"
     onChange={(event)=> {
-      setReceiptFile(event.target.files[0] || null)
+      const file = event.target.files[0];
+      
+
+    
+    if (!file) {
+      return;
+    } else if(!allowedTypes.includes(file.type)){
+        setFileError("Please select a JPEG, PNG, or WebP image.");
+        setReceiptFile(null);
+        return;
+    } else if(file.size > maxSize){
+      setFileError("Receipt image must be 5 MB or smaller.");
+      setReceiptFile(null);
+      return;
+    } 
+
+    setFileError(null);
+    setReceiptFile(file)
     }}
     />
+
+    {fileError && <p>{fileError}</p>}
 
     {previewUrl && (
       <img src={previewUrl} alt="Receipt preview" />
     )}
+
+    {receiptFile && (
+    <button onClick={() => setReceiptFile(null)}>
+      Remove receipt
+    </button>
+  )}
 
 
       <div className="placeholder-card">
