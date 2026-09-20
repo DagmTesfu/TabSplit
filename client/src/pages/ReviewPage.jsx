@@ -35,11 +35,25 @@ export default function ReviewPage() {
     );
   }
 
-  const { restaurantName, currency, items } = receipt;
-  const sym = currencySymbol(currency);
+  const {
+    restaurantName,
+    currency,
+    items = [],
+    taxMinor = 0,
+    tipMinor = 0,
+    additionalCharges = [],
+    totalMinor: serverTotalMinor,
+  } = receipt;
 
-  // Sum priceMinor values — pure integer addition, no floating point.
-  const totalMinor = items.reduce((sum, item) => sum + item.priceMinor, 0);
+  const sym = currencySymbol(currency);
+  const itemsSubtotalMinor = items.reduce((sum, item) => sum + item.priceMinor, 0);
+  const finalTotalMinor =
+    serverTotalMinor !== undefined
+      ? serverTotalMinor
+      : itemsSubtotalMinor +
+        taxMinor +
+        tipMinor +
+        additionalCharges.reduce((sum, c) => sum + (c.amountMinor || 0), 0);
 
   return (
     <div className="page">
@@ -54,6 +68,7 @@ export default function ReviewPage() {
         {items.length} item{items.length !== 1 ? 's' : ''} · {currency}
       </p>
 
+      {/* Items List */}
       <ul style={{ listStyle: 'none', padding: 0, marginBottom: 20 }}>
         {items.map((item, index) => (
           <li
@@ -74,22 +89,89 @@ export default function ReviewPage() {
         ))}
       </ul>
 
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '14px 0',
-          borderTop: '2px solid var(--text-main)',
-          fontWeight: 700,
-          fontSize: '1.1rem',
-        }}
-      >
-        <span>Items Total</span>
-        <span>{sym}{formatPrice(totalMinor, currency)}</span>
+      {/* Breakdown & Summary */}
+      <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: 12, marginBottom: 20 }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '6px 0',
+            color: 'var(--text-muted)',
+            fontSize: '0.95rem',
+          }}
+        >
+          <span>Items subtotal</span>
+          <span>{sym}{formatPrice(itemsSubtotalMinor, currency)}</span>
+        </div>
+
+        {additionalCharges.map((charge, index) => (
+          <div
+            key={index}
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '6px 0',
+              color: 'var(--text-muted)',
+              fontSize: '0.95rem',
+            }}
+          >
+            <span>{charge.name}</span>
+            <span>{sym}{formatPrice(charge.amountMinor, currency)}</span>
+          </div>
+        ))}
+
+        {taxMinor > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '6px 0',
+              color: 'var(--text-muted)',
+              fontSize: '0.95rem',
+            }}
+          >
+            <span>Tax</span>
+            <span>{sym}{formatPrice(taxMinor, currency)}</span>
+          </div>
+        )}
+
+        {tipMinor > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '6px 0',
+              color: 'var(--text-muted)',
+              fontSize: '0.95rem',
+            }}
+          >
+            <span>Tip</span>
+            <span>{sym}{formatPrice(tipMinor, currency)}</span>
+          </div>
+        )}
+
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingTop: 12,
+            marginTop: 8,
+            borderTop: '2px solid var(--text-main)',
+            fontWeight: 700,
+            fontSize: '1.15rem',
+          }}
+        >
+          <span>Total</span>
+          <span>{sym}{formatPrice(finalTotalMinor, currency)}</span>
+        </div>
       </div>
 
-      <Link to="/scan" className="btn-secondary" style={{ alignSelf: 'center', marginTop: 24 }}>
+      <Link to="/scan" className="btn-secondary" style={{ alignSelf: 'center', marginTop: 12 }}>
         ← Scan Another Receipt
       </Link>
     </div>
