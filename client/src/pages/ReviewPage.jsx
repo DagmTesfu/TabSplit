@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 function currencySymbol(currency) {
@@ -39,23 +39,37 @@ export default function ReviewPage() {
     );
   }
 
-  const {
-    restaurantName,
-    currency,
-    items = [],
-    taxMinor = 0,
-    taxInclusive = false,
-    tipMinor = 0,
-    additionalCharges = [],
-    totalMinor: serverTotalMinor,
-  } = receipt;
+  // Local editable receipt state (deep/safe copy from router state)
+  const [restaurantName, setRestaurantName] = useState(() => receipt.restaurantName ?? '');
+  const [items, setItems] = useState(() =>
+    Array.isArray(receipt.items)
+      ? receipt.items.map((item) => ({
+          name: item.name ?? '',
+          quantity: item.quantity ?? 1,
+          priceMinor: item.priceMinor ?? 0,
+        }))
+      : []
+  );
+  const [taxMinor, setTaxMinor] = useState(() => receipt.taxMinor ?? 0);
+  const [taxInclusive, setTaxInclusive] = useState(() => Boolean(receipt.taxInclusive));
+  const [tipMinor, setTipMinor] = useState(() => receipt.tipMinor ?? 0);
+  const [additionalCharges, setAdditionalCharges] = useState(() =>
+    Array.isArray(receipt.additionalCharges)
+      ? receipt.additionalCharges.map((charge) => ({
+          name: charge.name ?? '',
+          amountMinor: charge.amountMinor ?? 0,
+        }))
+      : []
+  );
 
+  // Preserved receipt context
+  const currency = receipt.currency ?? 'USD';
+  const printedTotalMinor = receipt.printedTotalMinor ?? null;
+
+  // Derived live totals from local state
   const itemsSubtotalMinor = items.reduce((sum, item) => sum + item.priceMinor, 0);
   const chargesMinor = additionalCharges.reduce((sum, c) => sum + (c.amountMinor || 0), 0);
-  const finalTotalMinor =
-    serverTotalMinor !== undefined
-      ? serverTotalMinor
-      : itemsSubtotalMinor + (taxInclusive ? 0 : taxMinor) + tipMinor + chargesMinor;
+  const totalMinor = itemsSubtotalMinor + (taxInclusive ? 0 : taxMinor) + tipMinor + chargesMinor;
 
   return (
     <div className="page">
@@ -178,7 +192,7 @@ export default function ReviewPage() {
           }}
         >
           <span>Total</span>
-          <span>{formatAmount(finalTotalMinor, currency)}</span>
+          <span>{formatAmount(totalMinor, currency)}</span>
         </div>
       </div>
 
