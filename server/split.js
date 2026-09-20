@@ -62,11 +62,12 @@ export function splitItemPrice(priceMinor, count) {
   return splitEvenly(priceMinor, count);
 }
 
-export function computePersonTotals({ items, people, taxMinor = 0, tipMinor = 0, taxInclusive = false }) {
+export function computePersonTotals({ items, people, taxMinor = 0, tipMinor = 0, taxInclusive = false, additionalCharges = [] }) {
   if (!Array.isArray(people) || people.length === 0) {
     throw new Error('At least one person is required');
   }
   if (!Array.isArray(items)) throw new Error('items must be an array');
+  if (!Array.isArray(additionalCharges)) throw new Error('additionalCharges must be an array');
 
   const peopleById = new Map();
   for (const person of people) {
@@ -123,6 +124,26 @@ export function computePersonTotals({ items, people, taxMinor = 0, tipMinor = 0,
     });
   }
 
+  // Validate additional charges and compute chargesTotalMinor
+  let chargesTotalMinor = 0;
+  for (let i = 0; i < additionalCharges.length; i++) {
+    const charge = additionalCharges[i];
+    if (!charge || typeof charge !== 'object' || Array.isArray(charge)) {
+      throw new Error(`Charge at index ${i} must be an object`);
+    }
+    const name = typeof charge.name === 'string' ? charge.name.trim() : '';
+    if (name === '') {
+      throw new Error(`Charge at index ${i} needs a non-empty name`);
+    }
+    if (!Number.isSafeInteger(charge.amountMinor) || charge.amountMinor < 0) {
+      throw new Error(`Charge "${name}" amountMinor must be a non-negative integer number of minor units`);
+    }
+    chargesTotalMinor += charge.amountMinor;
+    if (!Number.isSafeInteger(chargesTotalMinor)) {
+      throw new Error('Additional charges total is too large');
+    }
+  }
+
   // Reject if any person's pre-tax assigned subtotal is negative
   for (const person of peopleById.values()) {
     const personBaseTotal = totals.get(person.id);
@@ -134,7 +155,7 @@ export function computePersonTotals({ items, people, taxMinor = 0, tipMinor = 0,
   const tax = assertValidMinor(taxMinor, 'tax');
   const tip = assertValidMinor(tipMinor, 'tip');
   const isTaxInclusive = Boolean(taxInclusive);
-  const extra = isTaxInclusive ? tip : tax + tip;
+  const extra = isTaxInclusive ? tip + chargesTotalMinor : tax + tip + chargesTotalMinor;
   if (!Number.isSafeInteger(extra)) throw new Error('Tax and tip total is too large');
 
   const billTotalMinor = itemsTotalMinor + extra;
@@ -161,6 +182,7 @@ export function computePersonTotals({ items, people, taxMinor = 0, tipMinor = 0,
     taxMinor: tax,
     taxInclusive: isTaxInclusive,
     tipMinor: tip,
+    chargesTotalMinor,
     billTotalMinor,
     assignedMinor,
     unassignedMinor: billTotalMinor - assignedMinor,
