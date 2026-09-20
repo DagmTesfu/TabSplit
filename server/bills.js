@@ -51,6 +51,33 @@ function assertMinorAmount(value, label) {
   return value;
 }
 
+function assertSignedMinorAmount(value, label) {
+  if (!Number.isSafeInteger(value)) {
+    throw new BillError('INVALID_BILL', `${label} must be a safe integer in minor units`);
+  }
+  if (Math.abs(value) > Number.MAX_SAFE_INTEGER - 1_000_000_000) {
+    throw new BillError('INVALID_BILL', `${label} is too large`);
+  }
+  return value;
+}
+
+// Derive taxInclusive deterministically from the bill amounts and printed total.
+export function deriveTaxInclusive({ items, taxMinor = 0, tipMinor = 0, printedTotalMinor = null }) {
+  const itemsSubtotalMinor = items.reduce((sum, item) => sum + item.priceMinor, 0);
+  const candidateExclusive = itemsSubtotalMinor + taxMinor + tipMinor;
+  const candidateInclusive = itemsSubtotalMinor + tipMinor;
+
+  if (taxMinor === 0) {
+    return false;
+  }
+  if (printedTotalMinor !== null && printedTotalMinor !== undefined) {
+    if (candidateExclusive === printedTotalMinor) return false;
+    if (candidateInclusive === printedTotalMinor) return true;
+    throw new BillError('INVALID_BILL', 'Receipt amounts do not reconcile with printed total.');
+  }
+  return false;
+}
+
 // Structural and semantic validation of the client-submitted bill.
 // Returns a normalized copy; never mutates or trusts the input object.
 export function validateBillRequest(input) {
@@ -91,7 +118,14 @@ export function validateBillRequest(input) {
     }
     const id = assertId(item.id, `Item ${index + 1} id`);
     const name = assertText(item.name, `Item ${index + 1} name`, MAX_NAME_LENGTH);
-    const priceMinor = assertMinorAmount(item.priceMinor, `Item "${name}" price`);
+    const priceMinor = assertSignedMinorAmount(item.priceMinor, `Item "${name}" price`);
+    let quantity = 1;
+    if (item.quantity !== undefined && item.quantity !== null) {
+      if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 1000) {
+        throw new BillError('INVALID_BILL', `Item "${name}" quantity must be a positive integer`);
+      }
+      quantity = item.quantity;
+    }
     const assignedTo = item.assignedTo ?? [];
     if (!Array.isArray(assignedTo)) {
       throw new BillError('INVALID_BILL', `Item "${name}" assignedTo must be an array of person ids`);
@@ -106,8 +140,12 @@ export function validateBillRequest(input) {
       }
       assignees.push(personId);
     }
-    return { id, name, priceMinor, assignedTo: assignees };
+    return { id, name, quantity, priceMinor, assignedTo: assignees };
   });
+
+  const printedTotalMinor = input.printedTotalMinor !== undefined && input.printedTotalMinor !== null
+    ? assertMinorAmount(input.printedTotalMinor, 'Printed total')
+    : null;
 
   return {
     restaurantName,
@@ -116,6 +154,7 @@ export function validateBillRequest(input) {
     people: [...peopleById.values()],
     taxMinor: input.taxMinor === undefined || input.taxMinor === null ? 0 : assertMinorAmount(input.taxMinor, 'Tax'),
     tipMinor: input.tipMinor === undefined || input.tipMinor === null ? 0 : assertMinorAmount(input.tipMinor, 'Tip'),
+    printedTotalMinor,
   };
 }
 
@@ -123,13 +162,15 @@ export function validateBillRequest(input) {
 // sends totals; everything numeric here is derived server-side.
 function recalculate(validated) {
   try {
+    const taxInclusive = deriveTaxInclusive(validated);
     return computePersonTotals({
-      items: validated.items.map(({ id, name, priceMinor, assignedTo }) => ({
-        id, name, priceMinor, assignedTo,
+      items: validated.items.map(({ id, name, quantity, priceMinor, assignedTo }) => ({
+        id, name, quantity, priceMinor, assignedTo,
       })),
       people: validated.people,
       taxMinor: validated.taxMinor,
       tipMinor: validated.tipMinor,
+      taxInclusive,
     });
   } catch (error) {
     // split.js invariants are defense in depth; validation above should make
@@ -152,7 +193,9 @@ export function finalizeBill(input) {
     items: validated.items,
     people: validated.people,
     taxMinor: result.taxMinor,
+    taxInclusive: result.taxInclusive,
     tipMinor: result.tipMinor,
+    printedTotalMinor: validated.printedTotalMinor,
     totals: {
       people: result.people.map(({ id, name, totalMinor }) => ({ id, name, totalMinor })),
       itemsTotalMinor: result.itemsTotalMinor,

@@ -49,7 +49,20 @@ export function splitEvenly(totalMinor, count) {
   return allocate(totalMinor, new Array(count).fill(1));
 }
 
-export function computePersonTotals({ items, people, taxMinor = 0, tipMinor = 0 }) {
+export function splitItemPrice(priceMinor, count) {
+  if (!Number.isSafeInteger(priceMinor)) {
+    throw new Error('priceMinor must be a safe integer');
+  }
+  if (!Number.isSafeInteger(count) || count < 1) {
+    throw new Error('count must be a positive integer');
+  }
+  if (priceMinor < 0) {
+    return splitEvenly(-priceMinor, count).map((share) => -share);
+  }
+  return splitEvenly(priceMinor, count);
+}
+
+export function computePersonTotals({ items, people, taxMinor = 0, tipMinor = 0, taxInclusive = false }) {
   if (!Array.isArray(people) || people.length === 0) {
     throw new Error('At least one person is required');
   }
@@ -79,7 +92,10 @@ export function computePersonTotals({ items, people, taxMinor = 0, tipMinor = 0 
     itemIds.add(item.id);
     const name = typeof item.name === 'string' ? item.name.trim() : '';
     if (name === '') throw new Error(`Item ${item.id} needs a non-empty name`);
-    const price = assertValidMinor(item.priceMinor, `Item "${name}" price`);
+    if (!Number.isSafeInteger(item.priceMinor)) {
+      throw new Error(`Item "${name}" price must be a safe integer number of minor units`);
+    }
+    const price = item.priceMinor;
     itemsTotalMinor += price;
     if (!Number.isSafeInteger(itemsTotalMinor)) throw new Error('Items total is too large');
 
@@ -101,18 +117,31 @@ export function computePersonTotals({ items, people, taxMinor = 0, tipMinor = 0 
       unassignedItemIds.push(item.id);
       continue;
     }
-    const shares = splitEvenly(price, assignees.length);
+    const shares = splitItemPrice(price, assignees.length);
     assignees.forEach((personId, index) => {
       totals.set(personId, totals.get(personId) + shares[index]);
     });
   }
 
+  // Reject if any person's pre-tax assigned subtotal is negative
+  for (const person of peopleById.values()) {
+    const personBaseTotal = totals.get(person.id);
+    if (personBaseTotal < 0) {
+      throw new Error(`Person "${person.name}" has a negative subtotal after discounts (${personBaseTotal}). Discounts cannot exceed that person's assigned items.`);
+    }
+  }
+
   const tax = assertValidMinor(taxMinor, 'tax');
   const tip = assertValidMinor(tipMinor, 'tip');
-  const extra = tax + tip;
+  const isTaxInclusive = Boolean(taxInclusive);
+  const extra = isTaxInclusive ? tip : tax + tip;
   if (!Number.isSafeInteger(extra)) throw new Error('Tax and tip total is too large');
 
-  const billTotalMinor = assertValidMinor(itemsTotalMinor + extra, 'Bill total');
+  const billTotalMinor = itemsTotalMinor + extra;
+  if (!Number.isSafeInteger(billTotalMinor) || billTotalMinor < 0) {
+    throw new Error('Bill total must be a non-negative integer number of minor units');
+  }
+
   const ids = [...peopleById.keys()];
   const baseTotals = ids.map((id) => totals.get(id));
   const extraShares = baseTotals.some((amount) => amount > 0)
@@ -130,6 +159,7 @@ export function computePersonTotals({ items, people, taxMinor = 0, tipMinor = 0 
     unassignedItemIds,
     itemsTotalMinor,
     taxMinor: tax,
+    taxInclusive: isTaxInclusive,
     tipMinor: tip,
     billTotalMinor,
     assignedMinor,

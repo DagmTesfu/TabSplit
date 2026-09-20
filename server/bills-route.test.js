@@ -123,6 +123,32 @@ test('route: POST /api/bills finalizes, persists and returns share URL', async (
   });
 });
 
+test('route: POST /api/bills handles discount line item and derives taxInclusive=true', async () => {
+  const fake = fakeDb();
+  process.env.PUBLIC_APP_URL = 'https://tabsplit.example';
+  await withServer(async (base) => {
+    setBillDbForTesting(fake);
+    const discountBody = {
+      restaurantName: 'Toby',
+      currency: 'USD',
+      items: [
+        { id: 'i1', name: 'Meal', quantity: 2, priceMinor: 2500, assignedTo: ['p1'] },
+        { id: 'i2', name: 'Voucher', quantity: 1, priceMinor: -500, assignedTo: ['p1'] },
+      ],
+      people: [{ id: 'p1', name: 'Dagm' }],
+      taxMinor: 333,
+      tipMinor: 0,
+      printedTotalMinor: 2000, // 2500 - 500 = 2000 (taxInclusive=true)
+    };
+    const res = await post(base, discountBody);
+    assert.equal(res.status, 201);
+    const body = await res.json();
+    assert.equal(body.bill.taxInclusive, true);
+    assert.equal(body.bill.totals.billTotalMinor, 2000);
+    assert.equal(body.bill.totals.people[0].totalMinor, 2000);
+  });
+});
+
 test('route: POST /api/bills rejects invalid bills with 400 and stable codes', async () => {
   const fake = fakeDb();
   await withServer(async (base) => {

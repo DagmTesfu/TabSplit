@@ -1,20 +1,24 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
-// Format priceMinor (integer cents/santim) to a display string.
-// E.g. 1695 with currency "USD" → "16.95", 4000 with "ETB" → "40.00".
-// Both ETB and USD use 2 minor units.
-function formatPrice(priceMinor, currency) {
-  const minorUnits = 2;
-  const major = Math.floor(priceMinor / 10 ** minorUnits);
-  const minor = priceMinor % 10 ** minorUnits;
-  return `${major}.${String(minor).padStart(minorUnits, '0')}`;
-}
-
 function currencySymbol(currency) {
   if (currency === 'USD') return '$';
   if (currency === 'ETB') return 'ETB ';
   return `${currency} `;
+}
+
+// Format signed priceMinor (integer cents/santim) to a display string with currency symbol.
+// E.g. 1695 with "USD" → "$16.95", -599 with "USD" → "-$5.99".
+// 4000 with "ETB" → "ETB 40.00", -500 with "ETB" → "-ETB 5.00".
+function formatAmount(priceMinor, currency) {
+  const minorUnits = 2;
+  const isNegative = priceMinor < 0;
+  const absMinor = Math.abs(priceMinor);
+  const major = Math.floor(absMinor / 10 ** minorUnits);
+  const minor = absMinor % 10 ** minorUnits;
+  const formatted = `${major}.${String(minor).padStart(minorUnits, '0')}`;
+  const sym = currencySymbol(currency);
+  return isNegative ? `-${sym}${formatted}` : `${sym}${formatted}`;
 }
 
 export default function ReviewPage() {
@@ -40,20 +44,18 @@ export default function ReviewPage() {
     currency,
     items = [],
     taxMinor = 0,
+    taxInclusive = false,
     tipMinor = 0,
     additionalCharges = [],
     totalMinor: serverTotalMinor,
   } = receipt;
 
-  const sym = currencySymbol(currency);
   const itemsSubtotalMinor = items.reduce((sum, item) => sum + item.priceMinor, 0);
+  const chargesMinor = additionalCharges.reduce((sum, c) => sum + (c.amountMinor || 0), 0);
   const finalTotalMinor =
     serverTotalMinor !== undefined
       ? serverTotalMinor
-      : itemsSubtotalMinor +
-        taxMinor +
-        tipMinor +
-        additionalCharges.reduce((sum, c) => sum + (c.amountMinor || 0), 0);
+      : itemsSubtotalMinor + (taxInclusive ? 0 : taxMinor) + tipMinor + chargesMinor;
 
   return (
     <div className="page">
@@ -81,9 +83,18 @@ export default function ReviewPage() {
               borderBottom: '1px solid var(--border-color)',
             }}
           >
-            <span style={{ flex: 1, marginRight: 12 }}>{item.name}</span>
-            <span style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
-              {sym}{formatPrice(item.priceMinor, currency)}
+            <span style={{ flex: 1, marginRight: 12 }}>
+              {item.quantity && item.quantity > 1 ? `${item.quantity} × ` : ''}
+              {item.name}
+            </span>
+            <span
+              style={{
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+                color: item.priceMinor < 0 ? '#16a34a' : 'inherit',
+              }}
+            >
+              {formatAmount(item.priceMinor, currency)}
             </span>
           </li>
         ))}
@@ -102,7 +113,7 @@ export default function ReviewPage() {
           }}
         >
           <span>Items subtotal</span>
-          <span>{sym}{formatPrice(itemsSubtotalMinor, currency)}</span>
+          <span>{formatAmount(itemsSubtotalMinor, currency)}</span>
         </div>
 
         {additionalCharges.map((charge, index) => (
@@ -118,7 +129,7 @@ export default function ReviewPage() {
             }}
           >
             <span>{charge.name}</span>
-            <span>{sym}{formatPrice(charge.amountMinor, currency)}</span>
+            <span>{formatAmount(charge.amountMinor, currency)}</span>
           </div>
         ))}
 
@@ -133,8 +144,8 @@ export default function ReviewPage() {
               fontSize: '0.95rem',
             }}
           >
-            <span>Tax</span>
-            <span>{sym}{formatPrice(taxMinor, currency)}</span>
+            <span>{taxInclusive ? 'Includes Tax/VAT' : 'Tax'}</span>
+            <span>{formatAmount(taxMinor, currency)}</span>
           </div>
         )}
 
@@ -150,7 +161,7 @@ export default function ReviewPage() {
             }}
           >
             <span>Tip</span>
-            <span>{sym}{formatPrice(tipMinor, currency)}</span>
+            <span>{formatAmount(tipMinor, currency)}</span>
           </div>
         )}
 
@@ -167,7 +178,7 @@ export default function ReviewPage() {
           }}
         >
           <span>Total</span>
-          <span>{sym}{formatPrice(finalTotalMinor, currency)}</span>
+          <span>{formatAmount(finalTotalMinor, currency)}</span>
         </div>
       </div>
 

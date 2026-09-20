@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { allocate, splitEvenly, computePersonTotals } from './split.js';
+import { allocate, splitEvenly, splitItemPrice, computePersonTotals } from './split.js';
 
 const sum = (arr) => arr.reduce((a, b) => a + b, 0);
 
@@ -47,6 +47,85 @@ test('splitEvenly: basic cases', () => {
   assert.deepEqual(splitEvenly(0, 4), [0, 0, 0, 0]);
   assert.throws(() => splitEvenly(100, 0), Error);
   assert.throws(() => splitEvenly(100, -2), Error);
+});
+
+test('splitItemPrice: positive line splitting still works', () => {
+  assert.deepEqual(splitItemPrice(600, 1), [600]);
+  assert.deepEqual(splitItemPrice(600, 2), [300, 300]);
+  assert.deepEqual(splitItemPrice(200, 3), [67, 67, 66]);
+  assert.deepEqual(splitItemPrice(0, 2), [0, 0]);
+});
+
+test('splitItemPrice: negative line splitting with exact largest remainder (-100 / 3 = -34, -33, -33)', () => {
+  assert.deepEqual(splitItemPrice(-200, 2), [-100, -100]);
+  assert.deepEqual(splitItemPrice(-100, 3), [-34, -33, -33]);
+  assert.deepEqual(splitItemPrice(-1, 3), [-1, -0, -0]);
+  assert.equal(sum(splitItemPrice(-100, 3)), -100);
+});
+
+test('computePersonTotals: signed discount items reduce assigned person totals', () => {
+  const result = computePersonTotals({
+    items: [
+      { id: 'pizza', name: 'Pizza', priceMinor: 600, assignedTo: ['dagm'] },
+      { id: 'burger', name: 'Burger', priceMinor: 450, assignedTo: ['abel'] },
+      { id: 'discount', name: 'Discount', priceMinor: -200, assignedTo: ['dagm', 'abel'] },
+    ],
+    people: [
+      { id: 'dagm', name: 'Dagm' },
+      { id: 'abel', name: 'Abel' },
+    ],
+  });
+  const dagm = result.people.find((p) => p.id === 'dagm');
+  const abel = result.people.find((p) => p.id === 'abel');
+  assert.equal(dagm.totalMinor, 500); // 600 - 100
+  assert.equal(abel.totalMinor, 350); // 450 - 100
+  assert.equal(result.billTotalMinor, 850);
+  assert.equal(result.fullyAssigned, true);
+});
+
+test('computePersonTotals: tax-inclusive calculation does not double-count tax', () => {
+  const result = computePersonTotals({
+    items: [
+      { id: 'food', name: 'Food', priceMinor: 2000, assignedTo: ['dagm'] },
+      { id: 'drink', name: 'Drink', priceMinor: 199, assignedTo: ['abel'] },
+    ],
+    people: [
+      { id: 'dagm', name: 'Dagm' },
+      { id: 'abel', name: 'Abel' },
+    ],
+    taxMinor: 367, // included in food + drink
+    tipMinor: 0,
+    taxInclusive: true,
+  });
+  assert.equal(result.billTotalMinor, 2199);
+  assert.equal(result.taxInclusive, true);
+  assert.equal(sum(result.people.map((p) => p.totalMinor)), 2199);
+});
+
+test('computePersonTotals: rejects negative person base subtotal with clear error', () => {
+  assert.throws(
+    () => computePersonTotals({
+      items: [
+        { id: 'coffee', name: 'Coffee', priceMinor: 400, assignedTo: ['dagm'] },
+        { id: 'discount', name: 'Big Discount', priceMinor: -1000, assignedTo: ['dagm'] },
+      ],
+      people: [{ id: 'dagm', name: 'Dagm' }],
+    }),
+    (error) => error.message.includes('negative subtotal after discounts')
+  );
+});
+
+test('computePersonTotals: rejects negative overall bill total', () => {
+  assert.throws(
+    () => computePersonTotals({
+      items: [
+        { id: 'item', name: 'Item', priceMinor: 100, assignedTo: ['dagm'] },
+        { id: 'voucher', name: 'Voucher', priceMinor: -500, assignedTo: ['dagm'] },
+      ],
+      people: [{ id: 'dagm', name: 'Dagm' }],
+    }),
+    Error
+  );
 });
 
 test('computePersonTotals: single-person item pays full amount', () => {
