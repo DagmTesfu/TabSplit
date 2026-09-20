@@ -63,6 +63,12 @@ const inputBaseStyle = {
   transition: 'border-color 0.15s ease',
 };
 
+let nextIdCounter = 0;
+function createId(prefix = 'id') {
+  nextIdCounter += 1;
+  return `${prefix}-${Date.now().toString(36)}-${nextIdCounter}`;
+}
+
 export default function ReviewPage() {
   const location = useLocation();
   const receipt = location.state?.receipt;
@@ -81,11 +87,12 @@ export default function ReviewPage() {
     );
   }
 
-  // Local editable receipt state
+  // Local editable receipt state with stable IDs
   const [restaurantName, setRestaurantName] = useState(() => receipt.restaurantName ?? '');
   const [items, setItems] = useState(() =>
     Array.isArray(receipt.items)
-      ? receipt.items.map((item) => ({
+      ? receipt.items.map((item, idx) => ({
+          id: item.id || createId(`item-${idx}`),
           name: item.name ?? '',
           quantity: typeof item.quantity === 'number' && item.quantity >= 1 ? item.quantity : 1,
           priceStr: minorToDecimalStr(item.priceMinor ?? 0),
@@ -97,7 +104,8 @@ export default function ReviewPage() {
   const [tipStr, setTipStr] = useState(() => minorToDecimalStr(receipt.tipMinor ?? 0));
   const [additionalCharges, setAdditionalCharges] = useState(() =>
     Array.isArray(receipt.additionalCharges)
-      ? receipt.additionalCharges.map((charge) => ({
+      ? receipt.additionalCharges.map((charge, idx) => ({
+          id: charge.id || createId(`charge-${idx}`),
           name: charge.name ?? '',
           amountStr: minorToDecimalStr(charge.amountMinor ?? 0),
         }))
@@ -108,17 +116,51 @@ export default function ReviewPage() {
   const currency = receipt.currency ?? 'USD';
   const printedTotalMinor = receipt.printedTotalMinor ?? null;
 
+  // Amount help modal state
+  const [showAmountHelp, setShowAmountHelp] = useState(false);
+
   // Change handlers
-  const handleItemChange = (index, field, value) => {
+  const handleItemChange = (id, field, value) => {
     setItems((prev) =>
-      prev.map((item, idx) => (idx === index ? { ...item, [field]: value } : item))
+      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     );
   };
 
-  const handleChargeChange = (index, field, value) => {
+  const handleAddItem = () => {
+    setItems((prev) => [
+      ...prev,
+      {
+        id: createId('item'),
+        name: '',
+        quantity: 1,
+        priceStr: '0.00',
+      },
+    ]);
+  };
+
+  const handleDeleteItem = (id) => {
+    setItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleChargeChange = (id, field, value) => {
     setAdditionalCharges((prev) =>
-      prev.map((charge, idx) => (idx === index ? { ...charge, [field]: value } : charge))
+      prev.map((charge) => (charge.id === id ? { ...charge, [field]: value } : charge))
     );
+  };
+
+  const handleAddCharge = () => {
+    setAdditionalCharges((prev) => [
+      ...prev,
+      {
+        id: createId('charge'),
+        name: '',
+        amountStr: '0.00',
+      },
+    ]);
+  };
+
+  const handleDeleteCharge = (id) => {
+    setAdditionalCharges((prev) => prev.filter((charge) => charge.id !== id));
   };
 
   // Live integer totals derived from local state
@@ -165,24 +207,55 @@ export default function ReviewPage() {
         />
       </div>
 
-      <p style={{ color: 'var(--text-muted)', marginBottom: 16, fontSize: '0.9rem' }}>
-        {items.length} item{items.length !== 1 ? 's' : ''} · {currency}
-      </p>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 16,
+          flexWrap: 'wrap',
+          gap: 8,
+        }}
+      >
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
+          {items.length} item{items.length !== 1 ? 's' : ''} · {currency}
+        </p>
+        <button
+          type="button"
+          onClick={() => setShowAmountHelp(true)}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--primary-color)',
+            fontSize: '0.85rem',
+            fontWeight: 500,
+            cursor: 'pointer',
+            padding: '4px 6px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            borderRadius: '4px',
+          }}
+        >
+          <span style={{ fontSize: '1rem', lineHeight: 1 }}>ⓘ</span>
+          <span>How to enter amounts</span>
+        </button>
+      </div>
 
       {/* Items List */}
-      <ul style={{ listStyle: 'none', padding: 0, marginBottom: 20 }}>
+      <ul style={{ listStyle: 'none', padding: 0, marginBottom: 12 }}>
         {items.map((item, index) => {
           const itemPriceMinor = parseSignedMinor(item.priceStr);
           const isNegative = itemPriceMinor < 0;
 
           return (
             <li
-              key={index}
+              key={item.id}
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 8,
-                padding: '10px 0',
+                gap: 6,
+                padding: '8px 0',
                 borderBottom: '1px solid var(--border-color)',
               }}
             >
@@ -192,17 +265,17 @@ export default function ReviewPage() {
                 min="1"
                 step="1"
                 value={item.quantity}
-                onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                onChange={(e) => handleItemChange(item.id, 'quantity', e.target.value)}
                 onBlur={(e) => {
                   const val = parseInt(e.target.value, 10);
-                  handleItemChange(index, 'quantity', Number.isNaN(val) || val < 1 ? 1 : val);
+                  handleItemChange(item.id, 'quantity', Number.isNaN(val) || val < 1 ? 1 : val);
                 }}
                 aria-label={`Item ${index + 1} quantity`}
                 style={{
                   ...inputBaseStyle,
-                  width: '46px',
+                  width: '42px',
                   textAlign: 'center',
-                  padding: '8px 4px',
+                  padding: '8px 2px',
                 }}
               />
               <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>×</span>
@@ -211,7 +284,7 @@ export default function ReviewPage() {
               <input
                 type="text"
                 value={item.name}
-                onChange={(e) => handleItemChange(index, 'name', e.target.value)}
+                onChange={(e) => handleItemChange(item.id, 'name', e.target.value)}
                 aria-label={`Item ${index + 1} name`}
                 placeholder="Item name"
                 style={{ ...inputBaseStyle, flex: 1, minWidth: 0 }}
@@ -222,21 +295,68 @@ export default function ReviewPage() {
                 type="text"
                 inputMode="decimal"
                 value={item.priceStr}
-                onChange={(e) => handleItemChange(index, 'priceStr', e.target.value)}
+                onChange={(e) => handleItemChange(item.id, 'priceStr', e.target.value)}
                 aria-label={`Item ${index + 1} price`}
                 placeholder="0.00"
                 style={{
                   ...inputBaseStyle,
-                  width: '84px',
+                  width: '78px',
                   textAlign: 'right',
                   fontWeight: 600,
                   color: isNegative ? '#16a34a' : 'inherit',
                 }}
               />
+
+              {/* Delete item button */}
+              <button
+                type="button"
+                onClick={() => handleDeleteItem(item.id)}
+                aria-label={`Delete item ${item.name || index + 1}`}
+                title="Delete item"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '8px 6px',
+                  borderRadius: '6px',
+                  fontSize: '1.1rem',
+                  lineHeight: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                ✕
+              </button>
             </li>
           );
         })}
       </ul>
+
+      {/* Add Item Button */}
+      <button
+        type="button"
+        onClick={handleAddItem}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+          padding: '8px 14px',
+          backgroundColor: '#eff6ff',
+          color: 'var(--primary-color)',
+          fontSize: '0.9rem',
+          fontWeight: 600,
+          border: '1px dashed #bfdbfe',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          marginBottom: 20,
+          width: '100%',
+        }}
+      >
+        + Add item
+      </button>
 
       {/* Breakdown & Summary */}
       <div
@@ -264,40 +384,84 @@ export default function ReviewPage() {
         {/* Additional Charges */}
         {additionalCharges.map((charge, index) => (
           <div
-            key={index}
+            key={charge.id}
             style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              gap: 8,
-              padding: '6px 0',
+              gap: 6,
+              padding: '4px 0',
             }}
           >
             <input
               type="text"
               value={charge.name}
-              onChange={(e) => handleChargeChange(index, 'name', e.target.value)}
+              onChange={(e) => handleChargeChange(charge.id, 'name', e.target.value)}
               placeholder="Charge name"
               aria-label={`Additional charge ${index + 1} name`}
-              style={{ ...inputBaseStyle, flex: 1, fontSize: '0.9rem' }}
+              style={{ ...inputBaseStyle, flex: 1, fontSize: '0.9rem', minWidth: 0 }}
             />
             <input
               type="text"
               inputMode="decimal"
               value={charge.amountStr}
-              onChange={(e) => handleChargeChange(index, 'amountStr', e.target.value)}
+              onChange={(e) => handleChargeChange(charge.id, 'amountStr', e.target.value)}
               placeholder="0.00"
               aria-label={`Additional charge ${index + 1} amount`}
               style={{
                 ...inputBaseStyle,
-                width: '84px',
+                width: '78px',
                 textAlign: 'right',
                 fontSize: '0.9rem',
                 fontWeight: 600,
               }}
             />
+            <button
+              type="button"
+              onClick={() => handleDeleteCharge(charge.id)}
+              aria-label={`Delete additional charge ${charge.name || index + 1}`}
+              title="Delete charge"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                padding: '8px 6px',
+                borderRadius: '6px',
+                fontSize: '1.1rem',
+                lineHeight: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              ✕
+            </button>
           </div>
         ))}
+
+        {/* Add Additional Charge Button */}
+        <button
+          type="button"
+          onClick={handleAddCharge}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '6px 10px',
+            backgroundColor: '#f8fafc',
+            color: 'var(--primary-color)',
+            fontSize: '0.85rem',
+            fontWeight: 600,
+            border: '1px dashed var(--border-color)',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            marginTop: 6,
+            marginBottom: 6,
+          }}
+        >
+          + Add charge
+        </button>
 
         {/* Tax Section */}
         <div style={{ padding: '8px 0', borderTop: '1px solid var(--border-color)', marginTop: 6 }}>
@@ -418,6 +582,149 @@ export default function ReviewPage() {
       <Link to="/scan" className="btn-secondary" style={{ alignSelf: 'center', marginTop: 12 }}>
         ← Scan Another Receipt
       </Link>
+
+      {/* How to enter amounts Modal / Bottom Sheet */}
+      {showAmountHelp && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="amount-help-title"
+          onClick={() => setShowAmountHelp(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: 0,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: '#ffffff',
+              borderTopLeftRadius: '16px',
+              borderTopRightRadius: '16px',
+              width: '100%',
+              maxWidth: '480px',
+              padding: '24px 20px',
+              boxShadow: '0 -4px 24px rgba(0, 0, 0, 0.15)',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 16,
+              }}
+            >
+              <h2 id="amount-help-title" style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
+                How to enter amounts
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowAmountHelp(false)}
+                aria-label="Close"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.25rem',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '4px 8px',
+                  lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ color: 'var(--text-main)', fontSize: '0.95rem', marginBottom: 16 }}>
+              Enter the amount exactly as it appears on your receipt.
+            </p>
+
+            <div
+              style={{
+                backgroundColor: 'var(--bg-color)',
+                borderRadius: '8px',
+                padding: '12px 16px',
+                marginBottom: 16,
+                fontSize: '0.9rem',
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: 600,
+                  color: 'var(--text-muted)',
+                  marginBottom: 8,
+                  fontSize: '0.8rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                Examples
+              </div>
+              <ul
+                style={{
+                  listStyle: 'none',
+                  padding: 0,
+                  margin: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6,
+                }}
+              >
+                <li>
+                  <code style={{ fontWeight: 600 }}>600</code> → 600 {currency}
+                </li>
+                <li>
+                  <code style={{ fontWeight: 600 }}>600.50</code> → 600.50 {currency}
+                </li>
+                <li>
+                  <code style={{ fontWeight: 600 }}>12.99</code> → 12.99 {currency}
+                </li>
+                <li>
+                  <code style={{ fontWeight: 600 }}>-5.99</code> → discount of 5.99 {currency}
+                </li>
+              </ul>
+            </div>
+
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: 16 }}>
+              You don't need to convert amounts into cents.
+            </p>
+
+            <div
+              style={{
+                backgroundColor: '#eff6ff',
+                border: '1px solid #bfdbfe',
+                borderRadius: '8px',
+                padding: '12px 14px',
+                marginBottom: 20,
+                fontSize: '0.9rem',
+                color: '#1e3a8a',
+              }}
+            >
+              <strong>Discounts:</strong> If your receipt shows a discount such as <code>-5.99</code>, keep the <code>-</code> sign.
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowAmountHelp(false)}
+              className="btn-primary"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
