@@ -14,7 +14,7 @@ const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const WEBP = Buffer.from('RIFF\x00\x00\x00\x00WEBP', 'latin1');
 const TEXT = Buffer.from('not an image');
 const receipt = { restaurantName: 'Kaldi', items: [{ name: 'Coffee', price: '40.00' }] };
-const normalized = { restaurantName: 'Kaldi', currency: 'ETB', items: [{ name: 'Coffee', priceMinor: 4000 }] };
+const normalized = { restaurantName: 'Kaldi', currency: 'ETB', items: [{ name: 'Coffee', priceMinor: 4000 }], taxMinor: 0, tipMinor: 0, additionalCharges: [], totalMinor: 4000 };
 
 beforeEach(() => {
   mock.method(globalThis, 'fetch', async () => {
@@ -106,7 +106,7 @@ test('normalization: trimmed names, currency echo, and exact minor units', () =>
     { restaurantName: 'R', currency: 'USD', items: [
       { name: 'CEVICHE', priceMinor: 1695 }, { name: 'Drink', priceMinor: 123450 },
       { name: 'Water', priceMinor: 0 }, { name: 'Small', priceMinor: 29 },
-    ] });
+    ], taxMinor: 0, tipMinor: 0, additionalCharges: [], totalMinor: 125174 });
   assert.equal(normalizeReceiptData({ items: receipt.items }, 'ETB').restaurantName, '');
   assert.equal(normalizeReceiptData({ items: [{ name: 'Big', price: '90071992547409.91' }] }, 'ETB').items[0].priceMinor, Number.MAX_SAFE_INTEGER);
 });
@@ -140,6 +140,130 @@ test('normalization: item count capped and input is not mutated', () => {
   assert.equal(item.name, ' X ');
   assert.equal(normalizeReceiptData({ items: Array(100).fill(item) }, 'ETB').items.length, 100);
   assert.throws(() => normalizeReceiptData({ items: Array(101).fill(item) }, 'ETB'), /Too many/);
+});
+
+test('normalization: no adjustments → taxMinor=0, tipMinor=0, additionalCharges=[], totalMinor=itemsSum', () => {
+  const result = normalizeReceiptData(receipt, 'ETB');
+  assert.equal(result.taxMinor, 0);
+  assert.equal(result.tipMinor, 0);
+  assert.deepEqual(result.additionalCharges, []);
+  assert.equal(result.totalMinor, 4000);
+});
+
+test('normalization: printed tax is converted and included in totalMinor', () => {
+  const result = normalizeReceiptData({ items: [{ name: 'Burger', price: '10.00' }], tax: '1.50' }, 'USD');
+  assert.equal(result.taxMinor, 150);
+  assert.equal(result.tipMinor, 0);
+  assert.deepEqual(result.additionalCharges, []);
+  assert.equal(result.totalMinor, 1150); // 1000 + 150
+});
+
+test('normalization: printed tip is converted and included in totalMinor', () => {
+  const result = normalizeReceiptData({ items: [{ name: 'Pasta', price: '20.00' }], tip: '3.00' }, 'USD');
+  assert.equal(result.taxMinor, 0);
+  assert.equal(result.tipMinor, 300);
+  assert.equal(result.totalMinor, 2300); // 2000 + 300
+});
+
+test('normalization: tax + tip + items add up correctly in totalMinor', () => {
+  const result = normalizeReceiptData({
+    restaurantName: 'Trattoria',
+    items: [{ name: 'Pizza', price: '15.00' }, { name: 'Salad', price: '8.00' }],
+    tax: '2.30',
+    tip: '4.60',
+  }, 'USD');
+  assert.equal(result.taxMinor, 230);
+  assert.equal(result.tipMinor, 460);
+  // items: 1500 + 800 = 2300; + tax 230 + tip 460 = 2990
+  assert.equal(result.totalMinor, 2990);
+});
+
+test('normalization: additionalCharges with service charge', () => {
+  const result = normalizeReceiptData({
+    items: [{ name: 'Coffee', price: '40.00' }],
+    additionalCharges: [{ name: 'Service Charge', amount: '8.00' }],
+  }, 'ETB');
+  assert.equal(result.additionalCharges.length, 1);
+  assert.equal(result.additionalCharges[0].name, 'Service Charge');
+  assert.equal(result.additionalCharges[0].amountMinor, 800);
+  assert.equal(result.totalMinor, 4800); // 4000 + 800
+});
+
+test('normalization: multiple additionalCharges all included in totalMinor', () => {
+  const result = normalizeReceiptData({
+    items: [{ name: 'Tea', price: '25.00' }],
+    tax: '2.50',
+    additionalCharges: [
+      { name: 'Service Charge', amount: '5.00' },
+      { name: 'Delivery Fee', amount: '10.00' },
+    ],
+  }, 'ETB');
+  assert.equal(result.taxMinor, 250);
+  assert.equal(result.additionalCharges[0].amountMinor, 500);
+  assert.equal(result.additionalCharges[1].amountMinor, 1000);
+  assert.equal(result.totalMinor, 4250); // 2500 + 250 + 500 + 1000 = 4250
+});
+
+test('normalization: additionalCharges name is trimmed', () => {
+  const result = normalizeReceiptData({
+    items: [{ name: 'Juice', price: '5.00' }],
+    additionalCharges: [{ name: '  VAT  ', amount: '0.75' }],
+  }, 'USD');
+  assert.equal(result.additionalCharges[0].name, 'VAT');
+});
+
+test('normalization: malformed tax amount rejects with INVALID_RESPONSE', () => {
+  for (const tax of [-1, '-1', 'abc', null, {}, [], true, '1e2', '1.234']) {
+    assert.throws(
+      () => normalizeReceiptData({ items: [{ name: 'Pizza', price: '10.00' }], tax }, 'ETB'),
+      (error) => error instanceof AiError && error.code === 'INVALID_RESPONSE'
+    );
+  }
+});
+
+test('normalization: malformed tip amount rejects with INVALID_RESPONSE', () => {
+  for (const tip of [-1, 'abc', null, {}, NaN]) {
+    assert.throws(
+      () => normalizeReceiptData({ items: [{ name: 'Pizza', price: '10.00' }], tip }, 'ETB'),
+      (error) => error instanceof AiError && error.code === 'INVALID_RESPONSE'
+    );
+  }
+});
+
+test('normalization: additionalCharges with missing or bad name/amount rejects', () => {
+  const item = { name: 'Pizza', price: '10.00' };
+  const invalid = [
+    null,
+    'string',
+    { name: '', amount: '5.00' },
+    { name: '  ', amount: '5.00' },
+    { name: 'VAT' }, // missing amount
+    { name: 'VAT', amount: '-1' },
+    { name: 'VAT', amount: 'abc' },
+    { name: 'VAT', amount: '5.00', extra: true }, // unexpected field
+  ];
+  for (const charge of invalid) {
+    assert.throws(
+      () => normalizeReceiptData({ items: [item], additionalCharges: [charge] }, 'ETB'),
+      (error) => error instanceof AiError && error.code === 'INVALID_RESPONSE'
+    );
+  }
+});
+
+test('normalization: additionalCharges must be an array; non-array rejects', () => {
+  for (const additionalCharges of [{}, 'string', 42, true, null]) {
+    assert.throws(
+      () => normalizeReceiptData({ items: [{ name: 'Pizza', price: '10.00' }], additionalCharges }, 'ETB'),
+      (error) => error instanceof AiError && error.code === 'INVALID_RESPONSE'
+    );
+  }
+});
+
+test('normalization: top-level "total" field is rejected (AI must not return a total)', () => {
+  assert.throws(
+    () => normalizeReceiptData({ items: [{ name: 'Pizza', price: '10.00' }], total: '10.00' }, 'ETB'),
+    (error) => error instanceof AiError && error.code === 'INVALID_RESPONSE'
+  );
 });
 
 test('extraction: image validation runs before external calls', async () => {
@@ -338,7 +462,7 @@ test('route: USD request echoes server-validated currency and minor units', asyn
   await withServer(async (base) => {
     const res = await post(base, uploadForm({ currency: 'usd' }));
     assert.equal(res.status, 200);
-    assert.deepEqual(await res.json(), { restaurantName: 'Kaldi', currency: 'USD', items: [{ name: 'Coffee', priceMinor: 400 }] });
+    assert.deepEqual(await res.json(), { restaurantName: 'Kaldi', currency: 'USD', items: [{ name: 'Coffee', priceMinor: 400 }], taxMinor: 0, tipMinor: 0, additionalCharges: [], totalMinor: 400 });
   });
 });
 
@@ -365,6 +489,10 @@ test('route: provider decimal price converts exactly, including the $16.95 examp
       restaurantName: 'La Mar',
       currency: 'USD',
       items: [{ name: 'CEVICHE DE CAMARONES', priceMinor: 1695 }],
+      taxMinor: 0,
+      tipMinor: 0,
+      additionalCharges: [],
+      totalMinor: 1695,
     });
   });
 });
