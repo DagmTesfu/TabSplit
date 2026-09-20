@@ -204,6 +204,10 @@ async function callOpenRouter(imageBuffer, imageType, prompt) {
 
 // Public contract: buffer + MIME type + server-validated currency in;
 // validated {restaurantName, currency, items:[{name, priceMinor}]} out.
+// Transient AI/provider failures (PROVIDER_ERROR, PROVIDER_TIMEOUT, INVALID_RESPONSE)
+// are retried up to MAX_ATTEMPTS (2) times before bubbling up.
+const MAX_EXTRACTION_ATTEMPTS = 2;
+
 export async function extractReceipt(imageBuffer, imageType, currency) {
   const { code, minorUnits } = assertSupportedCurrency(currency);
   if (!Buffer.isBuffer(imageBuffer) || imageBuffer.length > MAX_IMAGE_BYTES) {
@@ -213,5 +217,28 @@ export async function extractReceipt(imageBuffer, imageType, currency) {
   if (!detected) throw new AiError('INVALID_IMAGE', 'Unsupported or corrupted image file');
   if (detected !== imageType) throw new AiError('INVALID_IMAGE', 'Image contents do not match the declared type');
   const prompt = extractionPrompt(code);
-  return normalizeReceiptData(await callOpenRouter(imageBuffer, detected, prompt), code);
+
+  let lastError;
+  for (let attempt = 1; attempt <= MAX_EXTRACTION_ATTEMPTS; attempt++) {
+    try {
+      const raw = await callOpenRouter(imageBuffer, detected, prompt);
+      return normalizeReceiptData(raw, code);
+    } catch (error) {
+      lastError = error;
+      // Do not retry configuration or client input validation errors
+      if (
+        !(error instanceof AiError) ||
+        error.code === 'NOT_CONFIGURED' ||
+        error.code === 'INVALID_IMAGE' ||
+        error.code === 'INVALID_CURRENCY'
+      ) {
+        throw error;
+      }
+      // Reached maximum attempts, bubble up the error
+      if (attempt >= MAX_EXTRACTION_ATTEMPTS) {
+        throw error;
+      }
+    }
+  }
+  throw lastError;
 }

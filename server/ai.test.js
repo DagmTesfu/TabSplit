@@ -201,6 +201,66 @@ test('extraction: refuses fenced JSON, prose, arrays, truncation and invalid con
   }
 });
 
+test('retry: succeeds on 2nd attempt after transient PROVIDER_ERROR', async () => {
+  process.env.OPENROUTER_API_KEY = 'test-only-key';
+  let callCount = 0;
+  const mocked = mock.method(globalThis, 'fetch', async () => {
+    callCount++;
+    if (callCount === 1) {
+      return { ok: false, status: 502, text: async () => 'temporary provider error' };
+    }
+    return { ok: true, status: 200, text: async () => JSON.stringify(fakeReply(JSON.stringify(receipt))) };
+  });
+  const result = await extractReceipt(JPEG, 'image/jpeg', 'ETB');
+  assert.deepEqual(result, normalized);
+  assert.equal(callCount, 2);
+  mocked.mock.restore();
+});
+
+test('retry: succeeds on 2nd attempt after transient malformed JSON / INVALID_RESPONSE', async () => {
+  process.env.OPENROUTER_API_KEY = 'test-only-key';
+  let callCount = 0;
+  const mocked = mock.method(globalThis, 'fetch', async () => {
+    callCount++;
+    if (callCount === 1) {
+      return { ok: true, status: 200, text: async () => JSON.stringify(fakeReply('malformed non-json')) };
+    }
+    return { ok: true, status: 200, text: async () => JSON.stringify(fakeReply(JSON.stringify(receipt))) };
+  });
+  const result = await extractReceipt(JPEG, 'image/jpeg', 'ETB');
+  assert.deepEqual(result, normalized);
+  assert.equal(callCount, 2);
+  mocked.mock.restore();
+});
+
+test('retry: succeeds on 2nd attempt after transient invalid schema from model', async () => {
+  process.env.OPENROUTER_API_KEY = 'test-only-key';
+  let callCount = 0;
+  const mocked = mock.method(globalThis, 'fetch', async () => {
+    callCount++;
+    if (callCount === 1) {
+      return { ok: true, status: 200, text: async () => JSON.stringify(fakeReply(JSON.stringify({ items: [] }))) };
+    }
+    return { ok: true, status: 200, text: async () => JSON.stringify(fakeReply(JSON.stringify(receipt))) };
+  });
+  const result = await extractReceipt(JPEG, 'image/jpeg', 'ETB');
+  assert.deepEqual(result, normalized);
+  assert.equal(callCount, 2);
+  mocked.mock.restore();
+});
+
+test('retry: stops at maximum 2 attempts on persistent failure', async () => {
+  process.env.OPENROUTER_API_KEY = 'test-only-key';
+  let callCount = 0;
+  const mocked = mock.method(globalThis, 'fetch', async () => {
+    callCount++;
+    return { ok: true, status: 200, text: async () => JSON.stringify(fakeReply('not json')) };
+  });
+  await assert.rejects(() => extractReceipt(JPEG, 'image/jpeg', 'ETB'), { code: 'INVALID_RESPONSE' });
+  assert.equal(callCount, 2);
+  mocked.mock.restore();
+});
+
 test('route: health and unknown paths remain unchanged', async () => {
   await withServer(async (base) => {
     assert.deepEqual(await (await realFetch(`${base}/api/health`)).json(), { ok: true });

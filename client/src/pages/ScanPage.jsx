@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { extractReceipt } from "../api";
 
 export default function ScanPage() {
   const [currency, setCurrency] = useState("ETB");
   const [receiptFile, setReceiptFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [fileError, setFileError] = useState(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanError, setScanError] = useState(null);
   const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
   const maxSize = 5 * 1024 * 1024;
 
@@ -24,6 +27,25 @@ export default function ScanPage() {
 
     }, [receiptFile])
 
+
+    const handleScan = async () => {
+
+      try{
+      console.log("handleScan clicked");
+
+      setIsScanning(true);
+      setScanError(null);
+
+      const data = await extractReceipt(receiptFile, currency);
+      
+
+      console.log(data);
+      } catch(err){
+        setScanError(err.message)
+      }finally{
+        setIsScanning(false);
+      }
+    }
 
   
 
@@ -83,6 +105,15 @@ export default function ScanPage() {
       Remove receipt
     </button>
   )}
+
+      <button
+        onClick={handleScan}
+        disabled={isScanning}
+      >
+        {isScanning ? "Scanning..." : "Scan Receipt"}
+      </button>
+
+      {scanError && <p style={{ color: '#dc2626', marginTop: 8 }}>{scanError}</p>}
 
 
       <div className="placeholder-card">
