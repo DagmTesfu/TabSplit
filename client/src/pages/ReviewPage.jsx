@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 function currencySymbol(currency) {
   if (currency === 'USD') return '$';
@@ -71,6 +71,7 @@ function createId(prefix = 'id') {
 
 export default function ReviewPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const receipt = location.state?.receipt;
 
   if (!receipt) {
@@ -116,8 +117,9 @@ export default function ReviewPage() {
   const currency = receipt.currency ?? 'USD';
   const printedTotalMinor = receipt.printedTotalMinor ?? null;
 
-  // Amount help modal state
+  // Amount help modal and validation error states
   const [showAmountHelp, setShowAmountHelp] = useState(false);
+  const [reviewError, setReviewError] = useState(null);
 
   // Change handlers
   const handleItemChange = (id, field, value) => {
@@ -176,6 +178,37 @@ export default function ReviewPage() {
   const tipMinor = parseNonNegativeMinor(tipStr);
   const previewTotalMinor =
     itemsSubtotalMinor + (taxInclusive ? 0 : taxMinor) + tipMinor + chargesMinor;
+
+  const handleContinue = () => {
+    if (items.length === 0) {
+      setReviewError('Please add at least one item before continuing.');
+      return;
+    }
+    setReviewError(null);
+    const confirmedReceipt = {
+      restaurantName: (restaurantName || '').trim(),
+      currency,
+      items: items.map((item, idx) => ({
+        id: item.id || `item-${idx + 1}`,
+        name: (item.name || '').trim() || `Item ${idx + 1}`,
+        quantity:
+          typeof item.quantity === 'number' && item.quantity >= 1
+            ? item.quantity
+            : Math.max(1, parseInt(item.quantity, 10) || 1),
+        priceMinor: parseSignedMinor(item.priceStr),
+      })),
+      taxMinor,
+      taxInclusive,
+      tipMinor,
+      additionalCharges: additionalCharges.map((charge, idx) => ({
+        id: charge.id || `charge-${idx + 1}`,
+        name: (charge.name || '').trim() || `Charge ${idx + 1}`,
+        amountMinor: parseNonNegativeMinor(charge.amountStr),
+      })),
+      printedTotalMinor,
+    };
+    navigate('/people', { state: { receipt: confirmedReceipt } });
+  };
 
   return (
     <div className="page">
@@ -579,7 +612,34 @@ export default function ReviewPage() {
         )}
       </div>
 
-      <Link to="/scan" className="btn-secondary" style={{ alignSelf: 'center', marginTop: 12 }}>
+      {reviewError && (
+        <div
+          role="alert"
+          style={{
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            color: '#dc2626',
+            padding: '10px 14px',
+            borderRadius: '8px',
+            fontSize: '0.9rem',
+            marginBottom: 12,
+            textAlign: 'center',
+          }}
+        >
+          {reviewError}
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={handleContinue}
+        className="btn-primary"
+        style={{ marginBottom: 12 }}
+      >
+        Continue
+      </button>
+
+      <Link to="/scan" className="btn-secondary" style={{ alignSelf: 'center' }}>
         ← Scan Another Receipt
       </Link>
 

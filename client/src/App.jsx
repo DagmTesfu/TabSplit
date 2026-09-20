@@ -3,6 +3,9 @@ import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import ScanPage from './pages/ScanPage';
 import ReviewPage from './pages/ReviewPage';
+import PeoplePage from './pages/PeoplePage';
+import AssignPage from './pages/AssignPage';
+import SummaryPage from './pages/SummaryPage';
 
 export default function App() {
   return (
@@ -19,6 +22,9 @@ export default function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/scan" element={<ScanPage />} />
             <Route path="/review" element={<ReviewPage />} />
+            <Route path="/people" element={<PeoplePage />} />
+            <Route path="/assign" element={<AssignPage />} />
+            <Route path="/summary" element={<SummaryPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
