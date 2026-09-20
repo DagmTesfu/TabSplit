@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import ScanPage from './pages/ScanPage';
+import ReviewPage from './pages/ReviewPage';
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/scan" element={<ScanPage />} />
+            <Route path="/review" element={<ReviewPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

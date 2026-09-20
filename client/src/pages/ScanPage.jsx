@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { extractReceipt } from "../api";
 
 export default function ScanPage() {
@@ -9,6 +9,7 @@ export default function ScanPage() {
   const [fileError, setFileError] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState(null);
+  const navigate = useNavigate();
   const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
   const maxSize = 5 * 1024 * 1024;
 
@@ -37,9 +38,7 @@ export default function ScanPage() {
       setScanError(null);
 
       const data = await extractReceipt(receiptFile, currency);
-      
-
-      console.log(data);
+      navigate('/review', { state: { receipt: data } });
       } catch(err){
         setScanError(err.message)
       }finally{
