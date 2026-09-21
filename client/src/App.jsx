@@ -6,6 +6,7 @@ import ReviewPage from './pages/ReviewPage';
 import PeoplePage from './pages/PeoplePage';
 import AssignPage from './pages/AssignPage';
 import SummaryPage from './pages/SummaryPage';
+import FinalizedPage from './pages/FinalizedPage';
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
             <Route path="/people" element={<PeoplePage />} />
             <Route path="/assign" element={<AssignPage />} />
             <Route path="/summary" element={<SummaryPage />} />
+            <Route path="/finalized" element={<FinalizedPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

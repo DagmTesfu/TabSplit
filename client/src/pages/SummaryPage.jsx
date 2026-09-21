@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { calculateAssignments } from '../calculateAssignments';
+import { finalizeBill, buildFinalizePayload } from '../api';
 
 function currencySymbol(currency) {
   if (currency === 'USD') return '$';
@@ -25,6 +26,9 @@ export default function SummaryPage() {
   const receipt = location.state?.receipt;
   const people = location.state?.people;
   const assignments = location.state?.assignments;
+
+  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
   const { calculation, error } = useMemo(() => {
     if (!receipt || !Array.isArray(people) || people.length === 0 || !assignments) {
@@ -103,6 +107,27 @@ export default function SummaryPage() {
 
   const unassignedCount = unassignedItemIds.length;
 
+  const handleFinalize = async () => {
+    if (isFinalizing || !fullyAssigned) return;
+    setIsFinalizing(true);
+    setSubmitError(null);
+
+    try {
+      const payload = buildFinalizePayload({ receipt, people, assignments });
+      const response = await finalizeBill(payload);
+      navigate('/finalized', {
+        state: {
+          shareCode: response.shareCode,
+          shareUrl: response.shareUrl,
+          bill: response.bill,
+        },
+      });
+    } catch (err) {
+      setIsFinalizing(false);
+      setSubmitError(err.message || 'Failed to finalize bill. Please try again.');
+    }
+  };
+
   return (
     <div className="page">
       {/* Page Header */}
@@ -161,6 +186,31 @@ export default function SummaryPage() {
           >
             Assign Items
           </button>
+        </div>
+      )}
+
+      {/* Finalize Error Banner */}
+      {submitError && (
+        <div
+          style={{
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '12px',
+            padding: '14px 16px',
+            marginBottom: 20,
+            color: '#991b1b',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 10,
+          }}
+        >
+          <span style={{ fontSize: '1.1rem' }}>⚠️</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: 2 }}>
+              Finalization Failed
+            </div>
+            <div style={{ fontSize: '0.875rem' }}>{submitError}</div>
+          </div>
         </div>
       )}
 
@@ -353,15 +403,37 @@ export default function SummaryPage() {
         </div>
       </div>
 
-      {/* Navigation Controls */}
-      <button
-        type="button"
-        onClick={() => navigate('/assign', { state: { receipt, people, assignments } })}
-        className="btn-secondary"
-        style={{ alignSelf: 'center', marginBottom: 16 }}
-      >
-        ← Back to Assign
-      </button>
+      {/* Action Buttons */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+        {fullyAssigned && (
+          <button
+            type="button"
+            onClick={handleFinalize}
+            disabled={isFinalizing}
+            className="btn-primary"
+            style={{
+              opacity: isFinalizing ? 0.75 : 1,
+              cursor: isFinalizing ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {isFinalizing ? 'Finalizing...' : 'Finalize Bill'}
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={() => navigate('/assign', { state: { receipt, people, assignments } })}
+          disabled={isFinalizing}
+          className="btn-secondary"
+          style={{
+            alignSelf: 'center',
+            opacity: isFinalizing ? 0.6 : 1,
+            cursor: isFinalizing ? 'not-allowed' : 'pointer',
+          }}
+        >
+          ← Back to Assign
+        </button>
+      </div>
     </div>
   );
 }

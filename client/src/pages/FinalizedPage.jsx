@@ -1,0 +1,158 @@
+import React, { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+
+export default function FinalizedPage() {
+  const location = useLocation();
+  const shareCode = location.state?.shareCode;
+  const shareUrl = location.state?.shareUrl;
+  const bill = location.state?.bill;
+  const [copied, setCopied] = useState(false);
+
+  if (!shareCode && !bill) {
+    return (
+      <div className="page page-center">
+        <h1 className="title">No Finalized Bill</h1>
+        <p className="subtitle">
+          Please finalize a bill from the summary step.
+        </p>
+        <Link to="/scan" className="btn-primary">
+          Go to Scanner
+        </Link>
+      </div>
+    );
+  }
+
+  const handleCopy = async () => {
+    if (shareUrl) {
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch {
+        // Fallback or ignore clipboard failure
+      }
+    }
+  };
+
+  return (
+    <div className="page">
+      <div style={{ textAlign: 'center', marginBottom: 24 }}>
+        <div style={{ fontSize: '3rem', marginBottom: 12 }}>🎉</div>
+        <h1 className="title" style={{ marginBottom: 6 }}>
+          Bill Finalized
+        </h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', margin: 0 }}>
+          {bill?.restaurantName ? `${bill.restaurantName} · ` : ''}
+          Your split is ready to share!
+        </p>
+      </div>
+
+      {/* Share Details Card */}
+      <div
+        style={{
+          backgroundColor: '#ffffff',
+          border: '1px solid var(--border-color)',
+          borderRadius: '12px',
+          padding: '20px',
+          marginBottom: 20,
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+        }}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>
+            Share Code
+          </div>
+          <div
+            style={{
+              fontSize: '1.4rem',
+              fontWeight: 800,
+              letterSpacing: '0.1em',
+              color: 'var(--primary-color)',
+              fontFamily: 'monospace',
+            }}
+          >
+            {shareCode}
+          </div>
+        </div>
+
+        {shareUrl && (
+          <div>
+            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>
+              Share Link
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                gap: 8,
+                alignItems: 'center',
+              }}
+            >
+              <input
+                type="text"
+                readOnly
+                value={shareUrl}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: '#f8fafc',
+                  fontSize: '0.9rem',
+                  color: 'var(--text-main)',
+                  outline: 'none',
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleCopy}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '6px',
+                  backgroundColor: copied ? '#16a34a' : 'var(--primary-color)',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  transition: 'background-color 0.15s ease',
+                }}
+              >
+                {copied ? 'Copied!' : 'Copy Link'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Feature 5.10 Notice Card */}
+      <div
+        style={{
+          backgroundColor: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          borderRadius: '12px',
+          padding: '16px',
+          marginBottom: 24,
+          color: '#1e40af',
+          fontSize: '0.9rem',
+          lineHeight: 1.5,
+        }}
+      >
+        <div style={{ fontWeight: 600, marginBottom: 4 }}>
+          Shared Bill View
+        </div>
+        <div>
+          The full shared bill view for participants will be implemented in Feature 5.10.
+        </div>
+      </div>
+
+      <Link
+        to="/"
+        className="btn-secondary"
+        style={{ alignSelf: 'center', textDecoration: 'none', textAlign: 'center' }}
+      >
+        Back to Home
+      </Link>
+    </div>
+  );
+}
