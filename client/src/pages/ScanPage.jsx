@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { extractReceipt } from '../api';
 
@@ -28,6 +28,8 @@ export default function ScanPage() {
   const [isScanning, setIsScanning] = useState(false);
   const [scanStatusMessage, setScanStatusMessage] = useState('');
   const [scanError, setScanError] = useState(null);
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
   const navigate = useNavigate();
   const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
   const maxSize = 5 * 1024 * 1024;
@@ -101,9 +103,32 @@ export default function ScanPage() {
     }
   };
 
+  const handleFileChange = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    if (!allowedTypes.includes(file.type)) {
+      setFileError('Please select a JPEG, PNG, or WebP image.');
+      setReceiptFile(null);
+      return;
+    }
+
+    if (file.size > maxSize) {
+      setFileError('Receipt image must be 5 MB or smaller.');
+      setReceiptFile(null);
+      return;
+    }
+
+    setFileError(null);
+    setScanError(null);
+    setReceiptFile(file);
+  };
+
   return (
     <div className="page">
-      <div style={{ marginBottom: 20 }}>
+      {/* Page Header */}
+      <div style={{ marginBottom: 24 }}>
         <h1 className="title" style={{ marginBottom: 4 }}>
           Scan Receipt
         </h1>
@@ -144,62 +169,117 @@ export default function ScanPage() {
         </select>
       </div>
 
-      {/* File Upload / Camera Input */}
-      <div style={{ marginBottom: 20 }}>
-        <label
-          htmlFor="receipt-upload"
-          style={{
-            display: 'block',
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            color: 'var(--text-muted)',
-            marginBottom: 6,
-            textTransform: 'uppercase',
-            letterSpacing: '0.04em',
-          }}
-        >
-          Receipt Image
-        </label>
+      {/* Hidden File Inputs for Camera and Gallery */}
+      <input
+        ref={cameraInputRef}
+        id="camera-upload"
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        capture="environment"
+        disabled={isScanning}
+        onChange={handleFileChange}
+        style={{ display: 'none' }}
+      />
+      <input
+        ref={galleryInputRef}
+        id="gallery-upload"
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        disabled={isScanning}
+        onChange={handleFileChange}
+        style={{ display: 'none' }}
+      />
 
-        <input
-          id="receipt-upload"
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          capture="environment"
-          disabled={isScanning}
-          onChange={(event) => {
-            const file = event.target.files[0];
-            if (!file) return;
+      {/* File Selection Card when no receipt is chosen */}
+      {!receiptFile && (
+        <div style={{ marginBottom: 20 }}>
+          <label
+            style={{
+              display: 'block',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              color: 'var(--text-muted)',
+              marginBottom: 8,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+            }}
+          >
+            Receipt Image
+          </label>
 
-            if (!allowedTypes.includes(file.type)) {
-              setFileError('Please select a JPEG, PNG, or WebP image.');
-              setReceiptFile(null);
-              return;
-            }
+          <div
+            style={{
+              border: '2px dashed var(--border-color)',
+              borderRadius: '12px',
+              padding: '24px 16px',
+              textAlign: 'center',
+              backgroundColor: '#fafbfc',
+            }}
+          >
+            <div style={{ fontSize: '2.25rem', marginBottom: 8 }}>🧾</div>
+            <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: 4 }}>
+              Add your receipt
+            </div>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 18 }}>
+              Take a photo with your camera or select an image from your gallery
+            </p>
 
-            if (file.size > maxSize) {
-              setFileError('Receipt image must be 5 MB or smaller.');
-              setReceiptFile(null);
-              return;
-            }
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                disabled={isScanning}
+                style={{
+                  flex: '1 1 140px',
+                  minHeight: '48px',
+                  padding: '10px 16px',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '8px',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  cursor: isScanning ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+                  touchAction: 'manipulation',
+                }}
+              >
+                <span>📸</span> Take Photo
+              </button>
 
-            setFileError(null);
-            setScanError(null);
-            setReceiptFile(file);
-          }}
-          style={{
-            width: '100%',
-            padding: '10px 12px',
-            border: '1px solid var(--border-color)',
-            borderRadius: '8px',
-            fontSize: '0.9rem',
-            color: 'var(--text-main)',
-            backgroundColor: '#ffffff',
-            cursor: isScanning ? 'not-allowed' : 'pointer',
-            opacity: isScanning ? 0.6 : 1,
-          }}
-        />
-      </div>
+              <button
+                type="button"
+                onClick={() => galleryInputRef.current?.click()}
+                disabled={isScanning}
+                style={{
+                  flex: '1 1 140px',
+                  minHeight: '48px',
+                  padding: '10px 16px',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '8px',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  cursor: isScanning ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+                  touchAction: 'manipulation',
+                }}
+              >
+                <span>🖼️</span> From Gallery
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* File Validation Error */}
       {fileError && (
@@ -247,7 +327,53 @@ export default function ScanPage() {
             />
             {isScanning && <div className="scanning-laser" />}
           </div>
-          <div style={{ marginTop: 8 }}>
+          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              disabled={isScanning}
+              style={{
+                background: '#f1f5f9',
+                border: '1px solid var(--border-color)',
+                color: isScanning ? 'var(--text-muted)' : 'var(--text-main)',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: isScanning ? 'not-allowed' : 'pointer',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                minHeight: '34px',
+                touchAction: 'manipulation',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              <span>📸</span> Retake
+            </button>
+
+            <button
+              type="button"
+              onClick={() => galleryInputRef.current?.click()}
+              disabled={isScanning}
+              style={{
+                background: '#f1f5f9',
+                border: '1px solid var(--border-color)',
+                color: isScanning ? 'var(--text-muted)' : 'var(--text-main)',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: isScanning ? 'not-allowed' : 'pointer',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                minHeight: '34px',
+                touchAction: 'manipulation',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              <span>🖼️</span> Choose from Gallery
+            </button>
+
             <button
               type="button"
               onClick={() => {
@@ -261,15 +387,15 @@ export default function ScanPage() {
                 background: 'none',
                 border: 'none',
                 color: isScanning ? 'var(--text-muted)' : '#dc2626',
-                fontSize: '0.85rem',
+                fontSize: '0.8rem',
                 fontWeight: 600,
                 cursor: isScanning ? 'not-allowed' : 'pointer',
                 padding: '6px 10px',
-                minHeight: '36px',
+                minHeight: '34px',
                 touchAction: 'manipulation',
               }}
             >
-              Remove receipt
+              Remove
             </button>
           </div>
         </div>
