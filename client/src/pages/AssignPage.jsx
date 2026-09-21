@@ -130,9 +130,19 @@ export default function AssignPage() {
                   justifyContent: 'space-between',
                   alignItems: 'baseline',
                   marginBottom: 6,
+                  gap: 8,
                 }}
               >
-                <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                <div
+                  style={{
+                    fontSize: '1.05rem',
+                    fontWeight: 700,
+                    color: 'var(--text-main)',
+                    flex: 1,
+                    minWidth: 0,
+                    wordBreak: 'break-word',
+                  }}
+                >
                   {item.quantity && item.quantity > 1 && (
                     <span style={{ color: 'var(--text-muted)', marginRight: 4, fontWeight: 600 }}>
                       {item.quantity} ×
@@ -145,6 +155,7 @@ export default function AssignPage() {
                     fontSize: '1rem',
                     fontWeight: 700,
                     color: item.priceMinor < 0 ? '#16a34a' : 'var(--text-main)',
+                    flexShrink: 0,
                   }}
                 >
                   {formatAmount(item.priceMinor ?? 0, currency)}
@@ -183,6 +194,7 @@ export default function AssignPage() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
+                        minHeight: '44px',
                         padding: '10px 12px',
                         borderRadius: '8px',
                         border: isSelected
@@ -194,7 +206,7 @@ export default function AssignPage() {
                         transition: 'all 0.15s ease',
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
                         <span
                           style={{
                             display: 'inline-flex',
@@ -205,11 +217,12 @@ export default function AssignPage() {
                             borderRadius: '4px',
                             border: isSelected
                               ? '1.5px solid var(--primary-color)'
-                              : '1.5px solid var(--border-color)',
+                              : '1px solid var(--border-color)',
                             backgroundColor: isSelected ? 'var(--primary-color)' : '#ffffff',
                             color: '#ffffff',
                             fontSize: '0.75rem',
                             fontWeight: 700,
+                            flexShrink: 0,
                           }}
                         >
                           {isSelected ? '✓' : ''}
@@ -219,6 +232,9 @@ export default function AssignPage() {
                             fontWeight: isSelected ? 600 : 500,
                             color: isSelected ? 'var(--primary-color)' : 'var(--text-main)',
                             fontSize: '0.95rem',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
                           }}
                         >
                           {person.name}

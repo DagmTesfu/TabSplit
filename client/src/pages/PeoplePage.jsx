@@ -194,12 +194,13 @@ export default function PeoplePage() {
             }}
             placeholder="e.g. Dagm"
             maxLength={60}
-            style={{ ...inputBaseStyle, flex: 1, minWidth: 0 }}
+            style={{ ...inputBaseStyle, flex: 1, minWidth: 0, minHeight: '44px' }}
           />
           <button
             type="submit"
             style={{
-              padding: '10px 18px',
+              padding: '10px 16px',
+              minHeight: '44px',
               backgroundColor: 'var(--primary-color)',
               color: '#ffffff',
               fontSize: '0.95rem',
@@ -208,6 +209,8 @@ export default function PeoplePage() {
               borderRadius: '8px',
               cursor: 'pointer',
               whiteSpace: 'nowrap',
+              flexShrink: 0,
+              touchAction: 'manipulation',
             }}
           >
             + Add
@@ -284,7 +287,7 @@ export default function PeoplePage() {
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     gap: 8,
-                    padding: '12px 14px',
+                    padding: '10px 12px',
                     backgroundColor: '#ffffff',
                     border: '1px solid var(--border-color)',
                     borderRadius: '8px',
@@ -292,7 +295,7 @@ export default function PeoplePage() {
                   }}
                 >
                   {isEditing ? (
-                    <div style={{ display: 'flex', gap: 6, flex: 1, alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: 6, flex: 1, minWidth: 0, alignItems: 'center' }}>
                       <input
                         type="text"
                         value={editingName}
@@ -303,13 +306,14 @@ export default function PeoplePage() {
                         }}
                         maxLength={60}
                         autoFocus
-                        style={{ ...inputBaseStyle, flex: 1, padding: '6px 10px', fontSize: '0.95rem' }}
+                        style={{ ...inputBaseStyle, flex: 1, minWidth: 0, padding: '8px 10px', fontSize: '0.95rem', minHeight: '38px' }}
                       />
                       <button
                         type="button"
                         onClick={() => saveEditing(person.id)}
                         style={{
-                          padding: '6px 12px',
+                          padding: '8px 12px',
+                          minHeight: '38px',
                           backgroundColor: 'var(--primary-color)',
                           color: '#ffffff',
                           border: 'none',
@@ -317,6 +321,8 @@ export default function PeoplePage() {
                           fontSize: '0.85rem',
                           fontWeight: 600,
                           cursor: 'pointer',
+                          flexShrink: 0,
+                          touchAction: 'manipulation',
                         }}
                       >
                         Save
@@ -325,13 +331,16 @@ export default function PeoplePage() {
                         type="button"
                         onClick={cancelEditing}
                         style={{
-                          padding: '6px 10px',
+                          padding: '8px 10px',
+                          minHeight: '38px',
                           backgroundColor: '#f1f5f9',
                           color: 'var(--text-muted)',
                           border: '1px solid var(--border-color)',
                           borderRadius: '6px',
                           fontSize: '0.85rem',
                           cursor: 'pointer',
+                          flexShrink: 0,
+                          touchAction: 'manipulation',
                         }}
                       >
                         Cancel
@@ -339,7 +348,7 @@ export default function PeoplePage() {
                     </div>
                   ) : (
                     <>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
                         <span
                           style={{
                             display: 'inline-flex',
@@ -365,13 +374,14 @@ export default function PeoplePage() {
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
+                            minWidth: 0,
                           }}
                         >
                           {person.name}
                         </span>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
                         <button
                           type="button"
                           onClick={() => startEditing(person)}
@@ -382,9 +392,11 @@ export default function PeoplePage() {
                             color: 'var(--primary-color)',
                             cursor: 'pointer',
                             fontSize: '0.85rem',
-                            fontWeight: 500,
-                            padding: '6px 8px',
+                            fontWeight: 600,
+                            padding: '8px 8px',
+                            minHeight: '40px',
                             borderRadius: '4px',
+                            touchAction: 'manipulation',
                           }}
                         >
                           Edit
@@ -400,12 +412,15 @@ export default function PeoplePage() {
                             color: 'var(--text-muted)',
                             cursor: 'pointer',
                             fontSize: '1.1rem',
-                            padding: '6px 8px',
+                            padding: '8px 8px',
+                            minHeight: '40px',
+                            minWidth: '32px',
                             borderRadius: '4px',
                             lineHeight: 1,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
+                            touchAction: 'manipulation',
                           }}
                         >
                           ✕

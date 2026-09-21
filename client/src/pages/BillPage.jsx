@@ -155,18 +155,20 @@ export default function BillPage() {
           backgroundColor: '#ffffff',
           border: '1.5px solid var(--border-color)',
           borderRadius: '14px',
-          padding: '18px 20px',
+          padding: '16px 18px',
           marginBottom: 20,
           boxShadow: '0 2px 4px rgba(0, 0, 0, 0.04)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'baseline',
+          gap: 8,
+          flexWrap: 'wrap',
         }}
       >
-        <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+        <span style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-muted)' }}>
           Total
         </span>
-        <span style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--primary-color)' }}>
+        <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary-color)', flexShrink: 0 }}>
           {formatAmount(billTotalMinor, currency)}
         </span>
       </div>
@@ -177,7 +179,7 @@ export default function BillPage() {
           backgroundColor: '#ffffff',
           border: '1px solid var(--border-color)',
           borderRadius: '12px',
-          padding: '16px 20px',
+          padding: '16px',
           marginBottom: 20,
           boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
         }}
@@ -195,7 +197,7 @@ export default function BillPage() {
           Participant Totals
         </h2>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {peopleTotals.map((person) => (
             <div
               key={person.id}
@@ -206,12 +208,24 @@ export default function BillPage() {
                 padding: '10px 12px',
                 borderRadius: '8px',
                 backgroundColor: '#f8fafc',
+                gap: 8,
               }}
             >
-              <span style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--text-main)' }}>
+              <span
+                style={{
+                  fontWeight: 600,
+                  fontSize: '1rem',
+                  color: 'var(--text-main)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  minWidth: 0,
+                  flex: 1,
+                }}
+              >
                 {person.name}
               </span>
-              <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-main)' }}>
+              <span style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)', flexShrink: 0 }}>
                 {formatAmount(person.totalMinor, currency)}
               </span>
             </div>
@@ -225,7 +239,7 @@ export default function BillPage() {
           backgroundColor: '#ffffff',
           border: '1px solid var(--border-color)',
           borderRadius: '12px',
-          padding: '16px 20px',
+          padding: '16px',
           marginBottom: 20,
           boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
         }}
@@ -262,9 +276,19 @@ export default function BillPage() {
                     justifyContent: 'space-between',
                     alignItems: 'baseline',
                     marginBottom: 4,
+                    gap: 8,
                   }}
                 >
-                  <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                  <div
+                    style={{
+                      fontSize: '0.95rem',
+                      fontWeight: 600,
+                      color: 'var(--text-main)',
+                      flex: 1,
+                      minWidth: 0,
+                      wordBreak: 'break-word',
+                    }}
+                  >
                     {item.quantity && item.quantity > 1 && (
                       <span style={{ color: 'var(--text-muted)', marginRight: 4 }}>
                         {item.quantity} ×
@@ -277,6 +301,7 @@ export default function BillPage() {
                       fontSize: '0.95rem',
                       fontWeight: 700,
                       color: item.priceMinor < 0 ? '#16a34a' : 'var(--text-main)',
+                      flexShrink: 0,
                     }}
                   >
                     {formatAmount(item.priceMinor ?? 0, currency)}
@@ -284,7 +309,14 @@ export default function BillPage() {
                 </div>
 
                 {/* Assigned People */}
-                <div style={{ fontSize: '0.825rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                <div
+                  style={{
+                    fontSize: '0.825rem',
+                    color: 'var(--text-muted)',
+                    fontWeight: 500,
+                    wordBreak: 'break-word',
+                  }}
+                >
                   {assignees.length > 0 ? assignees.join(' · ') : 'Unassigned'}
                 </div>
               </div>
@@ -299,7 +331,7 @@ export default function BillPage() {
           backgroundColor: '#ffffff',
           border: '1px solid var(--border-color)',
           borderRadius: '12px',
-          padding: '16px 20px',
+          padding: '16px',
           marginBottom: 24,
           boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
         }}
@@ -318,22 +350,21 @@ export default function BillPage() {
         </h2>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: '0.9rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', color: 'var(--text-muted)', gap: 8 }}>
             <span>Items Subtotal</span>
-            <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
+            <span style={{ fontWeight: 600, color: 'var(--text-main)', flexShrink: 0 }}>
               {formatAmount(itemsTotalMinor, currency)}
             </span>
           </div>
 
           {/* Tax */}
           {(taxMinor > 0 || taxInclusive) && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--text-muted)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span style={{ color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                 Tax
                 {taxInclusive && (
                   <span
                     style={{
-                      marginLeft: 6,
                       fontSize: '0.75rem',
                       fontWeight: 600,
                       backgroundColor: '#f1f5f9',
@@ -346,7 +377,7 @@ export default function BillPage() {
                   </span>
                 )}
               </span>
-              <span style={{ fontWeight: 600, color: taxInclusive ? 'var(--text-muted)' : 'var(--text-main)' }}>
+              <span style={{ fontWeight: 600, color: taxInclusive ? 'var(--text-muted)' : 'var(--text-main)', flexShrink: 0 }}>
                 {taxInclusive ? `(${formatAmount(taxMinor, currency)})` : formatAmount(taxMinor, currency)}
               </span>
             </div>
@@ -354,9 +385,9 @@ export default function BillPage() {
 
           {/* Tip */}
           {tipMinor > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', color: 'var(--text-muted)', gap: 8 }}>
               <span>Tip</span>
-              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
+              <span style={{ fontWeight: 600, color: 'var(--text-main)', flexShrink: 0 }}>
                 {formatAmount(tipMinor, currency)}
               </span>
             </div>
@@ -364,9 +395,9 @@ export default function BillPage() {
 
           {/* Additional Charges */}
           {additionalCharges.map((charge, idx) => (
-            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
-              <span>{charge.name}</span>
-              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
+            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', color: 'var(--text-muted)', gap: 8 }}>
+              <span style={{ wordBreak: 'break-word', minWidth: 0, flex: 1 }}>{charge.name}</span>
+              <span style={{ fontWeight: 600, color: 'var(--text-main)', flexShrink: 0 }}>
                 {formatAmount(charge.amountMinor, currency)}
               </span>
             </div>
@@ -378,13 +409,15 @@ export default function BillPage() {
             style={{
               display: 'flex',
               justifyContent: 'space-between',
+              alignItems: 'baseline',
               fontWeight: 800,
               fontSize: '1.05rem',
               color: 'var(--text-main)',
+              gap: 8,
             }}
           >
             <span>Total</span>
-            <span style={{ color: 'var(--primary-color)' }}>
+            <span style={{ color: 'var(--primary-color)', flexShrink: 0 }}>
               {formatAmount(billTotalMinor, currency)}
             </span>
           </div>

@@ -154,10 +154,11 @@ export default function SummaryPage() {
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 12,
+            flexWrap: 'wrap',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+            <span style={{ fontSize: '1.25rem', flexShrink: 0 }}>⚠️</span>
             <div>
               <div style={{ fontWeight: 600, color: '#92400e', fontSize: '0.95rem' }}>
                 {unassignedCount === 1
@@ -173,7 +174,8 @@ export default function SummaryPage() {
             type="button"
             onClick={() => navigate('/assign', { state: { receipt, people, assignments } })}
             style={{
-              padding: '6px 12px',
+              padding: '8px 14px',
+              minHeight: '38px',
               fontSize: '0.85rem',
               fontWeight: 600,
               backgroundColor: '#f59e0b',
@@ -182,6 +184,8 @@ export default function SummaryPage() {
               borderRadius: '6px',
               cursor: 'pointer',
               whiteSpace: 'nowrap',
+              flexShrink: 0,
+              touchAction: 'manipulation',
             }}
           >
             Assign Items
@@ -204,7 +208,7 @@ export default function SummaryPage() {
             gap: 10,
           }}
         >
-          <span style={{ fontSize: '1.1rem' }}>⚠️</span>
+          <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>⚠️</span>
           <div>
             <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: 2 }}>
               Finalization Failed
@@ -220,7 +224,7 @@ export default function SummaryPage() {
           backgroundColor: '#ffffff',
           border: '1px solid var(--border-color)',
           borderRadius: '12px',
-          padding: '16px 20px',
+          padding: '16px',
           marginBottom: 24,
           boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
         }}
@@ -240,20 +244,19 @@ export default function SummaryPage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: '0.95rem' }}>
           {/* Items Subtotal */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-main)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', color: 'var(--text-main)', gap: 8 }}>
             <span style={{ color: 'var(--text-muted)' }}>Items Subtotal</span>
-            <span style={{ fontWeight: 600 }}>{formatAmount(itemsTotalMinor, currency)}</span>
+            <span style={{ fontWeight: 600, flexShrink: 0 }}>{formatAmount(itemsTotalMinor, currency)}</span>
           </div>
 
           {/* Tax */}
           {(taxMinor > 0 || taxInclusive) && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--text-muted)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span style={{ color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                 Tax
                 {taxInclusive && (
                   <span
                     style={{
-                      marginLeft: 6,
                       fontSize: '0.75rem',
                       fontWeight: 600,
                       backgroundColor: '#f1f5f9',
@@ -266,7 +269,7 @@ export default function SummaryPage() {
                   </span>
                 )}
               </span>
-              <span style={{ fontWeight: 600, color: taxInclusive ? 'var(--text-muted)' : 'var(--text-main)' }}>
+              <span style={{ fontWeight: 600, color: taxInclusive ? 'var(--text-muted)' : 'var(--text-main)', flexShrink: 0 }}>
                 {taxInclusive ? `(${formatAmount(taxMinor, currency)})` : formatAmount(taxMinor, currency)}
               </span>
             </div>
@@ -274,17 +277,17 @@ export default function SummaryPage() {
 
           {/* Tip */}
           {tipMinor > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
               <span style={{ color: 'var(--text-muted)' }}>Tip</span>
-              <span style={{ fontWeight: 600 }}>{formatAmount(tipMinor, currency)}</span>
+              <span style={{ fontWeight: 600, flexShrink: 0 }}>{formatAmount(tipMinor, currency)}</span>
             </div>
           )}
 
           {/* Additional Charges */}
           {additionalCharges.map((charge, idx) => (
-            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-muted)' }}>{charge.name}</span>
-              <span style={{ fontWeight: 600 }}>{formatAmount(charge.amountMinor, currency)}</span>
+            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+              <span style={{ color: 'var(--text-muted)', wordBreak: 'break-word', minWidth: 0, flex: 1 }}>{charge.name}</span>
+              <span style={{ fontWeight: 600, flexShrink: 0 }}>{formatAmount(charge.amountMinor, currency)}</span>
             </div>
           ))}
 
@@ -300,10 +303,11 @@ export default function SummaryPage() {
               fontSize: '1.15rem',
               fontWeight: 800,
               color: 'var(--text-main)',
+              gap: 8,
             }}
           >
             <span>Total</span>
-            <span style={{ color: 'var(--primary-color)' }}>{formatAmount(billTotalMinor, currency)}</span>
+            <span style={{ color: 'var(--primary-color)', flexShrink: 0 }}>{formatAmount(billTotalMinor, currency)}</span>
           </div>
         </div>
       </div>
@@ -331,7 +335,7 @@ export default function SummaryPage() {
                 backgroundColor: '#ffffff',
                 border: '1px solid var(--border-color)',
                 borderRadius: '12px',
-                padding: '16px',
+                padding: '14px 16px',
                 boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
               }}
             >
@@ -342,9 +346,21 @@ export default function SummaryPage() {
                   justifyContent: 'space-between',
                   alignItems: 'baseline',
                   marginBottom: 10,
+                  gap: 8,
                 }}
               >
-                <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                <div
+                  style={{
+                    fontSize: '1.05rem',
+                    fontWeight: 700,
+                    color: 'var(--text-main)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    minWidth: 0,
+                    flex: 1,
+                  }}
+                >
                   {person.name}
                 </div>
                 <div
@@ -352,6 +368,7 @@ export default function SummaryPage() {
                     fontSize: '1.15rem',
                     fontWeight: 800,
                     color: 'var(--primary-color)',
+                    flexShrink: 0,
                   }}
                 >
                   {formatAmount(person.totalMinor, currency)}
@@ -370,16 +387,16 @@ export default function SummaryPage() {
                   borderRadius: '8px',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', color: 'var(--text-muted)', gap: 8 }}>
                   <span>Items</span>
-                  <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text-main)', flexShrink: 0 }}>
                     {formatAmount(person.itemsSubtotalMinor, currency)}
                   </span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', color: 'var(--text-muted)', gap: 8 }}>
                   <span>Tax, tip & charges</span>
-                  <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text-main)', flexShrink: 0 }}>
                     {formatAmount(person.adjustmentMinor, currency)}
                   </span>
                 </div>
@@ -388,14 +405,16 @@ export default function SummaryPage() {
                   style={{
                     display: 'flex',
                     justifyContent: 'space-between',
+                    alignItems: 'baseline',
                     borderTop: '1px dashed var(--border-color)',
                     paddingTop: 6,
                     fontWeight: 700,
                     color: 'var(--text-main)',
+                    gap: 8,
                   }}
                 >
                   <span>Total</span>
-                  <span>{formatAmount(person.totalMinor, currency)}</span>
+                  <span style={{ flexShrink: 0 }}>{formatAmount(person.totalMinor, currency)}</span>
                 </div>
               </div>
             </div>

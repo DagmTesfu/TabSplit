@@ -53,7 +53,7 @@ export default function FinalizedPage() {
           backgroundColor: '#ffffff',
           border: '1px solid var(--border-color)',
           borderRadius: '12px',
-          padding: '20px',
+          padding: '18px 16px',
           marginBottom: 20,
           boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
         }}
@@ -93,6 +93,8 @@ export default function FinalizedPage() {
                 value={shareUrl}
                 style={{
                   flex: 1,
+                  minWidth: 0,
+                  minHeight: '42px',
                   padding: '8px 12px',
                   borderRadius: '6px',
                   border: '1px solid var(--border-color)',
@@ -106,7 +108,8 @@ export default function FinalizedPage() {
                 type="button"
                 onClick={handleCopy}
                 style={{
-                  padding: '8px 14px',
+                  padding: '10px 16px',
+                  minHeight: '42px',
                   borderRadius: '6px',
                   backgroundColor: copied ? '#16a34a' : 'var(--primary-color)',
                   color: '#ffffff',
@@ -115,7 +118,9 @@ export default function FinalizedPage() {
                   fontSize: '0.85rem',
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
+                  flexShrink: 0,
                   transition: 'background-color 0.15s ease',
+                  touchAction: 'manipulation',
                 }}
               >
                 {copied ? 'Copied!' : 'Copy Link'}

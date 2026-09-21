@@ -53,13 +53,15 @@ function formatAmount(priceMinor, currency) {
 }
 
 const inputBaseStyle = {
-  padding: '8px 10px',
+  padding: '10px 10px',
   border: '1px solid var(--border-color)',
   borderRadius: '8px',
-  fontSize: '0.95rem',
+  fontSize: '1rem',
   color: 'var(--text-main)',
   backgroundColor: '#ffffff',
   outline: 'none',
+  minHeight: '40px',
+  boxSizing: 'border-box',
   transition: 'border-color 0.15s ease',
 };
 
@@ -263,11 +265,13 @@ export default function ReviewPage() {
             fontSize: '0.85rem',
             fontWeight: 500,
             cursor: 'pointer',
-            padding: '4px 6px',
+            padding: '6px 8px',
+            minHeight: '36px',
             display: 'inline-flex',
             alignItems: 'center',
             gap: 4,
             borderRadius: '4px',
+            touchAction: 'manipulation',
           }}
         >
           <span style={{ fontSize: '1rem', lineHeight: 1 }}>ⓘ</span>
@@ -309,9 +313,10 @@ export default function ReviewPage() {
                   width: '42px',
                   textAlign: 'center',
                   padding: '8px 2px',
+                  flexShrink: 0,
                 }}
               />
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>×</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', flexShrink: 0 }}>×</span>
 
               {/* Name input */}
               <input
@@ -333,9 +338,10 @@ export default function ReviewPage() {
                 placeholder="0.00"
                 style={{
                   ...inputBaseStyle,
-                  width: '78px',
+                  width: '76px',
                   textAlign: 'right',
                   fontWeight: 600,
+                  flexShrink: 0,
                   color: isNegative ? '#16a34a' : 'inherit',
                 }}
               />
@@ -358,6 +364,10 @@ export default function ReviewPage() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  minHeight: '40px',
+                  minWidth: '32px',
+                  flexShrink: 0,
+                  touchAction: 'manipulation',
                 }}
               >
                 ✕
@@ -376,16 +386,18 @@ export default function ReviewPage() {
           alignItems: 'center',
           justifyContent: 'center',
           gap: 6,
-          padding: '8px 14px',
+          padding: '10px 14px',
+          minHeight: '44px',
           backgroundColor: '#eff6ff',
           color: 'var(--primary-color)',
-          fontSize: '0.9rem',
+          fontSize: '0.95rem',
           fontWeight: 600,
           border: '1px dashed #bfdbfe',
           borderRadius: '8px',
           cursor: 'pointer',
           marginBottom: 20,
           width: '100%',
+          touchAction: 'manipulation',
         }}
       >
         + Add item
@@ -432,7 +444,7 @@ export default function ReviewPage() {
               onChange={(e) => handleChargeChange(charge.id, 'name', e.target.value)}
               placeholder="Charge name"
               aria-label={`Additional charge ${index + 1} name`}
-              style={{ ...inputBaseStyle, flex: 1, fontSize: '0.9rem', minWidth: 0 }}
+              style={{ ...inputBaseStyle, flex: 1, minWidth: 0 }}
             />
             <input
               type="text"
@@ -443,10 +455,10 @@ export default function ReviewPage() {
               aria-label={`Additional charge ${index + 1} amount`}
               style={{
                 ...inputBaseStyle,
-                width: '78px',
+                width: '76px',
                 textAlign: 'right',
-                fontSize: '0.9rem',
                 fontWeight: 600,
+                flexShrink: 0,
               }}
             />
             <button
@@ -466,6 +478,10 @@ export default function ReviewPage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                minHeight: '40px',
+                minWidth: '32px',
+                flexShrink: 0,
+                touchAction: 'manipulation',
               }}
             >
               ✕
@@ -481,16 +497,18 @@ export default function ReviewPage() {
             display: 'inline-flex',
             alignItems: 'center',
             gap: 4,
-            padding: '6px 10px',
+            padding: '8px 12px',
+            minHeight: '38px',
             backgroundColor: '#f8fafc',
             color: 'var(--primary-color)',
-            fontSize: '0.85rem',
+            fontSize: '0.9rem',
             fontWeight: 600,
             border: '1px dashed var(--border-color)',
             borderRadius: '6px',
             cursor: 'pointer',
             marginTop: 6,
             marginBottom: 6,
+            touchAction: 'manipulation',
           }}
         >
           + Add charge
@@ -518,8 +536,8 @@ export default function ReviewPage() {
                 ...inputBaseStyle,
                 width: '84px',
                 textAlign: 'right',
-                fontSize: '0.9rem',
                 fontWeight: 600,
+                flexShrink: 0,
               }}
             />
           </div>
@@ -528,11 +546,11 @@ export default function ReviewPage() {
           <label
             style={{
               display: 'flex',
-              alignItems: 'center',
+              alignItems: 'flex-start',
               gap: 8,
               fontSize: '0.85rem',
               color: 'var(--text-muted)',
-              marginTop: 6,
+              marginTop: 8,
               cursor: 'pointer',
             }}
           >
@@ -540,13 +558,13 @@ export default function ReviewPage() {
               type="checkbox"
               checked={taxInclusive}
               onChange={(e) => setTaxInclusive(e.target.checked)}
-              style={{ width: 16, height: 16, accentColor: 'var(--primary-color)' }}
+              style={{ width: 18, height: 18, accentColor: 'var(--primary-color)', marginTop: 2, flexShrink: 0 }}
             />
             <span>Tax already included in item prices</span>
           </label>
 
           {taxInclusive && taxMinor > 0 && (
-            <p style={{ fontSize: '0.8rem', color: '#16a34a', marginTop: 4 }}>
+            <p style={{ fontSize: '0.8rem', color: '#16a34a', marginTop: 4, paddingLeft: 26 }}>
               (Includes {formatAmount(taxMinor, currency)} tax/VAT — not added to total)
             </p>
           )}
@@ -574,8 +592,8 @@ export default function ReviewPage() {
               ...inputBaseStyle,
               width: '84px',
               textAlign: 'right',
-              fontSize: '0.9rem',
               fontWeight: 600,
+              flexShrink: 0,
             }}
           />
         </div>
@@ -672,7 +690,7 @@ export default function ReviewPage() {
               borderTopRightRadius: '16px',
               width: '100%',
               maxWidth: '480px',
-              padding: '24px 20px',
+              padding: '20px 16px',
               boxShadow: '0 -4px 24px rgba(0, 0, 0, 0.15)',
               maxHeight: '90vh',
               overflowY: 'auto',
@@ -686,7 +704,7 @@ export default function ReviewPage() {
                 marginBottom: 16,
               }}
             >
-              <h2 id="amount-help-title" style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
+              <h2 id="amount-help-title" style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0 }}>
                 How to enter amounts
               </h2>
               <button
@@ -699,8 +717,14 @@ export default function ReviewPage() {
                   fontSize: '1.25rem',
                   color: 'var(--text-muted)',
                   cursor: 'pointer',
-                  padding: '4px 8px',
+                  padding: '8px 10px',
+                  minHeight: '44px',
+                  minWidth: '44px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   lineHeight: 1,
+                  touchAction: 'manipulation',
                 }}
               >
                 ✕
@@ -715,7 +739,7 @@ export default function ReviewPage() {
               style={{
                 backgroundColor: 'var(--bg-color)',
                 borderRadius: '8px',
-                padding: '12px 16px',
+                padding: '12px 14px',
                 marginBottom: 16,
                 fontSize: '0.9rem',
               }}
