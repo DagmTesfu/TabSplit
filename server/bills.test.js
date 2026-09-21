@@ -30,6 +30,7 @@ test('validation: normalizes a valid bill without mutating the input', () => {
     people: [{ id: 'p1', name: 'Dagm' }],
     taxMinor: 1000,
     tipMinor: 500,
+    additionalCharges: [],
     printedTotalMinor: null,
   });
   assert.equal(input.items[0].name, 'Pizza'); // input untouched
@@ -45,6 +46,7 @@ test('validation: defaults, trimming and currency normalization', () => {
   assert.equal(result.currency, 'ETB');
   assert.equal(result.taxMinor, 0);
   assert.equal(result.tipMinor, 0);
+  assert.deepEqual(result.additionalCharges, []);
   assert.equal(result.printedTotalMinor, null);
   assert.equal(result.items[0].name, 'Item');
   assert.equal(result.items[0].quantity, 1);
@@ -262,6 +264,117 @@ test('finalization: conflicting client taxInclusive is overridden by server reco
   assert.equal(bill.totals.billTotalMinor, 1100);
 });
 
+test('finalization: one additional charge', () => {
+  const bill = finalizeBill({
+    restaurantName: 'Cafe',
+    currency: 'USD',
+    items: [
+      { id: 'i1', name: 'Item A', priceMinor: 1000, assignedTo: ['p1'] },
+      { id: 'i2', name: 'Item B', priceMinor: 3000, assignedTo: ['p2'] },
+    ],
+    people: [{ id: 'p1', name: 'Dagm' }, { id: 'p2', name: 'Abel' }],
+    additionalCharges: [{ name: 'Service Fee', amountMinor: 400 }],
+  });
+  assert.equal(bill.totals.chargesTotalMinor, 400);
+  assert.equal(bill.totals.billTotalMinor, 4400);
+  assert.deepEqual(bill.additionalCharges, [{ name: 'Service Fee', amountMinor: 400 }]);
+  const p1 = bill.totals.people.find((p) => p.id === 'p1');
+  const p2 = bill.totals.people.find((p) => p.id === 'p2');
+  assert.equal(p1.totalMinor, 1100); // 1000 + 100
+  assert.equal(p2.totalMinor, 3300); // 3000 + 300
+  const sum = bill.totals.people.reduce((t, p) => t + p.totalMinor, 0);
+  assert.equal(sum, bill.totals.billTotalMinor);
+});
+
+test('finalization: multiple additional charges', () => {
+  const bill = finalizeBill({
+    restaurantName: 'Cafe',
+    currency: 'USD',
+    items: [
+      { id: 'i1', name: 'Item A', priceMinor: 500, assignedTo: ['p1'] },
+    ],
+    people: [{ id: 'p1', name: 'Dagm' }],
+    additionalCharges: [
+      { name: 'Delivery Fee', amountMinor: 50 },
+      { name: 'Packaging', amountMinor: 25 },
+    ],
+  });
+  assert.equal(bill.totals.chargesTotalMinor, 75);
+  assert.equal(bill.totals.billTotalMinor, 575);
+  assert.deepEqual(bill.additionalCharges, [
+    { name: 'Delivery Fee', amountMinor: 50 },
+    { name: 'Packaging', amountMinor: 25 },
+  ]);
+  assert.equal(bill.totals.people[0].totalMinor, 575);
+});
+
+test('finalization: tax + tip + charge', () => {
+  const bill = finalizeBill({
+    currency: 'ETB',
+    items: [
+      { id: 'i1', name: 'Dish 1', priceMinor: 3000, assignedTo: ['p1'] },
+      { id: 'i2', name: 'Dish 2', priceMinor: 7000, assignedTo: ['p2'] },
+    ],
+    people: [{ id: 'p1', name: 'Dagm' }, { id: 'p2', name: 'Abel' }],
+    taxMinor: 1500,
+    tipMinor: 500,
+    additionalCharges: [{ name: 'Corkage', amountMinor: 1000 }],
+  });
+  // Items: 10000, Extra: 1500 + 500 + 1000 = 3000
+  // Dagm (30%): 3000 + 900 = 3900
+  // Abel (70%): 7000 + 2100 = 9100
+  assert.equal(bill.totals.itemsTotalMinor, 10000);
+  assert.equal(bill.totals.chargesTotalMinor, 1000);
+  assert.equal(bill.totals.billTotalMinor, 13000);
+  const p1 = bill.totals.people.find((p) => p.id === 'p1');
+  const p2 = bill.totals.people.find((p) => p.id === 'p2');
+  assert.equal(p1.totalMinor, 3900);
+  assert.equal(p2.totalMinor, 9100);
+  const sum = bill.totals.people.reduce((t, p) => t + p.totalMinor, 0);
+  assert.equal(sum, bill.totals.billTotalMinor);
+});
+
+test('finalization: tax-inclusive + tip + charge', () => {
+  const bill = finalizeBill({
+    currency: 'USD',
+    items: [
+      { id: 'i1', name: 'Item', priceMinor: 1000, assignedTo: ['p1'] },
+    ],
+    people: [{ id: 'p1', name: 'Dagm' }],
+    taxMinor: 150, // Informational only
+    tipMinor: 50,
+    additionalCharges: [{ name: 'Service', amountMinor: 100 }],
+    printedTotalMinor: 1150, // 1000 + 50(tip) + 100(charge) = 1150 (tax is inclusive)
+  });
+  assert.equal(bill.taxInclusive, true);
+  assert.equal(bill.totals.billTotalMinor, 1150);
+  assert.equal(bill.totals.people[0].totalMinor, 1150);
+  assert.deepEqual(bill.additionalCharges, [{ name: 'Service', amountMinor: 100 }]);
+});
+
+test('validation: malformed charge rejection', () => {
+  const base = structuredClone(validInput);
+  const malformedCases = [
+    { ...base, additionalCharges: 'not-an-array' },
+    { ...base, additionalCharges: [null] },
+    { ...base, additionalCharges: [42] },
+    { ...base, additionalCharges: [{ amountMinor: 100 }] },
+    { ...base, additionalCharges: [{ name: '', amountMinor: 100 }] },
+    { ...base, additionalCharges: [{ name: '   ', amountMinor: 100 }] },
+    { ...base, additionalCharges: [{ name: 'Fee', amountMinor: -1 }] },
+    { ...base, additionalCharges: [{ name: 'Fee', amountMinor: 1.5 }] },
+    { ...base, additionalCharges: [{ name: 'Fee', amountMinor: '100' }] },
+    { ...base, additionalCharges: [{ name: 'Fee', amountMinor: Number.MAX_SAFE_INTEGER }] },
+  ];
+  for (const [index, data] of malformedCases.entries()) {
+    assert.throws(
+      () => validateBillRequest(data),
+      (error) => error instanceof BillError && error.code === 'INVALID_BILL',
+      `malformed charge case ${index} should throw INVALID_BILL`
+    );
+  }
+});
+
 test('share codes: 8 base58 characters, unbiased enough, validator strict', () => {
   const codes = new Set();
   const counts = new Map();
@@ -281,3 +394,4 @@ test('share codes: 8 base58 characters, unbiased enough, validator strict', () =
     assert.equal(isValidShareCode(bad), false, `should reject ${String(bad)}`);
   }
 });
+

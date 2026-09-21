@@ -616,3 +616,74 @@ test('calculateAssignments: empty receipt is not treated as fully assigned', () 
     { id: 'p1', name: 'Dagm', itemsSubtotalMinor: 0, adjustmentMinor: 0, totalMinor: 0 },
   ]);
 });
+
+// --- Feature 5.12.2: Workflow Edge Cases ---
+
+test('edge case 8: quantity > 1 does not multiply the stored line price', () => {
+  const receipt = {
+    items: [
+      { id: 'i1', name: 'Draft Beer', quantity: 3, priceMinor: 1500 }, // Total line price is 1500, not 3 * 1500
+    ],
+  };
+  const people = [{ id: 'p1', name: 'Dagm' }];
+  const assignments = { i1: ['p1'] };
+
+  const result = calculateAssignments({ receipt, people, assignments });
+
+  assert.equal(result.itemsTotalMinor, 1500);
+  assert.equal(result.billTotalMinor, 1500);
+  assert.equal(result.peopleTotals[0].totalMinor, 1500);
+  assert.equal(result.itemSplits[0].quantity, 3);
+  assert.equal(result.itemSplits[0].priceMinor, 1500);
+});
+
+test('edge case 9: zero-price items are valid when assigned, but require assignment', () => {
+  const receipt = {
+    items: [
+      { id: 'i1', name: 'Water (Complimentary)', priceMinor: 0 },
+      { id: 'i2', name: 'Coffee', priceMinor: 400 },
+    ],
+  };
+  const people = [{ id: 'p1', name: 'Dagm' }];
+
+  // Case A: i1 is unassigned -> should be unassigned even though price is 0
+  const unassignedResult = calculateAssignments({ receipt, people, assignments: { i2: ['p1'] } });
+  assert.equal(unassignedResult.fullyAssigned, false);
+  assert.deepEqual(unassignedResult.unassignedItemIds, ['i1']);
+
+  // Case B: i1 is assigned -> fully assigned and total is correct
+  const assignedResult = calculateAssignments({ receipt, people, assignments: { i1: ['p1'], i2: ['p1'] } });
+  assert.equal(assignedResult.fullyAssigned, true);
+  assert.equal(assignedResult.unassignedItemIds.length, 0);
+  assert.equal(assignedResult.billTotalMinor, 400);
+  assert.equal(assignedResult.peopleTotals[0].totalMinor, 400);
+});
+
+test('edge case 5 & 6: discount combined with tax-inclusive receipt and additional charges', () => {
+  const receipt = {
+    items: [
+      { id: 'i1', name: 'Pizza', priceMinor: 1000 },
+      { id: 'i2', name: 'Discount Voucher', priceMinor: -200 },
+    ],
+    taxMinor: 120, // tax-inclusive: informational only
+    taxInclusive: true,
+    tipMinor: 80,
+    additionalCharges: [{ name: 'Service', amountMinor: 40 }],
+  };
+  const people = [{ id: 'p1', name: 'Dagm' }];
+  const assignments = { i1: ['p1'], i2: ['p1'] };
+
+  const result = calculateAssignments({ receipt, people, assignments });
+
+  // itemsTotal = 1000 - 200 = 800
+  // adjustment = tip(80) + charges(40) = 120 (tax is inclusive, so not added)
+  // billTotal = 800 + 120 = 920
+  assert.equal(result.itemsTotalMinor, 800);
+  assert.equal(result.adjustmentTotalMinor, 120);
+  assert.equal(result.billTotalMinor, 920);
+  assert.equal(result.fullyAssigned, true);
+  assert.deepEqual(result.peopleTotals, [
+    { id: 'p1', name: 'Dagm', itemsSubtotalMinor: 800, adjustmentMinor: 120, totalMinor: 920 },
+  ]);
+});
+

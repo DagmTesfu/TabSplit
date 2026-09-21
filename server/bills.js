@@ -62,10 +62,11 @@ function assertSignedMinorAmount(value, label) {
 }
 
 // Derive taxInclusive deterministically from the bill amounts and printed total.
-export function deriveTaxInclusive({ items, taxMinor = 0, tipMinor = 0, printedTotalMinor = null }) {
+export function deriveTaxInclusive({ items, taxMinor = 0, tipMinor = 0, additionalCharges = [], printedTotalMinor = null }) {
   const itemsSubtotalMinor = items.reduce((sum, item) => sum + item.priceMinor, 0);
-  const candidateExclusive = itemsSubtotalMinor + taxMinor + tipMinor;
-  const candidateInclusive = itemsSubtotalMinor + tipMinor;
+  const chargesTotalMinor = additionalCharges.reduce((sum, charge) => sum + charge.amountMinor, 0);
+  const candidateExclusive = itemsSubtotalMinor + taxMinor + tipMinor + chargesTotalMinor;
+  const candidateInclusive = itemsSubtotalMinor + tipMinor + chargesTotalMinor;
 
   if (taxMinor === 0) {
     return false;
@@ -143,6 +144,30 @@ export function validateBillRequest(input) {
     return { id, name, quantity, priceMinor, assignedTo: assignees };
   });
 
+  const rawCharges = input.additionalCharges;
+  let additionalCharges = [];
+  if (rawCharges !== undefined && rawCharges !== null) {
+    if (!Array.isArray(rawCharges)) {
+      throw new BillError('INVALID_BILL', 'additionalCharges must be an array');
+    }
+    if (rawCharges.length > 50) {
+      throw new BillError('INVALID_BILL', 'At most 50 additional charges are allowed');
+    }
+    let chargesTotalMinor = 0;
+    additionalCharges = rawCharges.map((charge, index) => {
+      if (charge === null || typeof charge !== 'object' || Array.isArray(charge)) {
+        throw new BillError('INVALID_BILL', `Charge at index ${index} must be an object`);
+      }
+      const name = assertText(charge.name, `Charge at index ${index} name`, MAX_NAME_LENGTH);
+      const amountMinor = assertMinorAmount(charge.amountMinor, `Charge "${name}" amount`);
+      chargesTotalMinor += amountMinor;
+      if (!Number.isSafeInteger(chargesTotalMinor)) {
+        throw new BillError('INVALID_BILL', 'Additional charges total is too large');
+      }
+      return { name, amountMinor };
+    });
+  }
+
   const printedTotalMinor = input.printedTotalMinor !== undefined && input.printedTotalMinor !== null
     ? assertMinorAmount(input.printedTotalMinor, 'Printed total')
     : null;
@@ -154,6 +179,7 @@ export function validateBillRequest(input) {
     people: [...peopleById.values()],
     taxMinor: input.taxMinor === undefined || input.taxMinor === null ? 0 : assertMinorAmount(input.taxMinor, 'Tax'),
     tipMinor: input.tipMinor === undefined || input.tipMinor === null ? 0 : assertMinorAmount(input.tipMinor, 'Tip'),
+    additionalCharges,
     printedTotalMinor,
   };
 }
@@ -171,6 +197,7 @@ function recalculate(validated) {
       taxMinor: validated.taxMinor,
       tipMinor: validated.tipMinor,
       taxInclusive,
+      additionalCharges: validated.additionalCharges,
     });
   } catch (error) {
     // split.js invariants are defense in depth; validation above should make
@@ -195,10 +222,12 @@ export function finalizeBill(input) {
     taxMinor: result.taxMinor,
     taxInclusive: result.taxInclusive,
     tipMinor: result.tipMinor,
+    additionalCharges: validated.additionalCharges,
     printedTotalMinor: validated.printedTotalMinor,
     totals: {
       people: result.people.map(({ id, name, totalMinor }) => ({ id, name, totalMinor })),
       itemsTotalMinor: result.itemsTotalMinor,
+      chargesTotalMinor: result.chargesTotalMinor,
       billTotalMinor: result.billTotalMinor,
       assignedMinor: result.assignedMinor,
       unassignedMinor: result.unassignedMinor,

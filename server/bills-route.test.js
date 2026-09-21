@@ -264,3 +264,30 @@ test('route: GET /api/bills/:code maps database failures to 503', async () => {
     assert.equal((await res.json()).code, 'DB_UNAVAILABLE');
   });
 });
+
+test('route: POST /api/bills preserves additionalCharges in finalized bill', async () => {
+  const fake = fakeDb();
+  await withServer(async (base) => {
+    setBillDbForTesting(fake);
+    const bodyWithCharges = {
+      ...validBody,
+      additionalCharges: [
+        { name: 'Service Fee', amountMinor: 2000 },
+      ],
+    };
+    const res = await post(base, bodyWithCharges);
+    assert.equal(res.status, 201);
+    const data = await res.json();
+    assert.equal(data.bill.totals.chargesTotalMinor, 2000);
+    assert.equal(data.bill.totals.billTotalMinor, 83500); // 81500 + 2000
+    assert.deepEqual(data.bill.additionalCharges, [{ name: 'Service Fee', amountMinor: 2000 }]);
+
+    // Fetch via GET /api/bills/:code to verify persistence and retrieval
+    const getRes = await realFetch(`${base}/api/bills/${data.shareCode}`);
+    assert.equal(getRes.status, 200);
+    const fetched = await getRes.json();
+    assert.deepEqual(fetched.bill.additionalCharges, [{ name: 'Service Fee', amountMinor: 2000 }]);
+    assert.equal(fetched.bill.totals.billTotalMinor, 83500);
+  });
+});
+
