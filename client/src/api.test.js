@@ -1,7 +1,7 @@
 import { test, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import axios from 'axios';
-import { extractReceipt, finalizeBill, buildFinalizePayload, getBill } from './api.js';
+import { extractReceipt, finalizeBill, buildFinalizePayload, getBill, getApiUrl } from './api.js';
 
 afterEach(() => {
   mock.restoreAll();
@@ -544,6 +544,51 @@ test('getBill: handles timeout error gracefully', async () => {
       return true;
     }
   );
+});
+
+// --- Feature 5.12.5.1: getApiUrl and production API base configuration tests ---
+
+test('getApiUrl: returns clean relative path when VITE_API_BASE_URL is not set', () => {
+  assert.equal(getApiUrl('/api/extract-receipt'), '/api/extract-receipt');
+  assert.equal(getApiUrl('/api/bills'), '/api/bills');
+  assert.equal(getApiUrl('/api/bills/ABC12345'), '/api/bills/ABC12345');
+});
+
+test('getApiUrl: prepends custom base URL and avoids duplicate /api or trailing slash issues', () => {
+  const customUrlResolution = (baseUrl, path) => {
+    const base = (baseUrl || '').trim().replace(/\/+$/, '');
+    const cleanBase = base.endsWith('/api') ? base.slice(0, -4) : base;
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    return `${cleanBase}${cleanPath}`;
+  };
+
+  // 1. Base URL without trailing slash
+  assert.equal(
+    customUrlResolution('https://api.tabsplit.com', '/api/bills'),
+    'https://api.tabsplit.com/api/bills'
+  );
+
+  // 2. Base URL with trailing slash
+  assert.equal(
+    customUrlResolution('https://api.tabsplit.com/', '/api/bills'),
+    'https://api.tabsplit.com/api/bills'
+  );
+
+  // 3. Base URL ending with /api (avoids duplicate /api/api/bills)
+  assert.equal(
+    customUrlResolution('https://api.tabsplit.com/api', '/api/bills'),
+    'https://api.tabsplit.com/api/bills'
+  );
+
+  // 4. Base URL ending with /api/ (avoids duplicate /api/api/bills)
+  assert.equal(
+    customUrlResolution('https://api.tabsplit.com/api/', '/api/bills'),
+    'https://api.tabsplit.com/api/bills'
+  );
+
+  // 5. Empty / undefined base URL returns relative path
+  assert.equal(customUrlResolution('', '/api/extract-receipt'), '/api/extract-receipt');
+  assert.equal(customUrlResolution(undefined, '/api/bills'), '/api/bills');
 });
 
 

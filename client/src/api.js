@@ -1,7 +1,14 @@
 import axios from 'axios';
 
+export function getApiUrl(path) {
+  const base = (import.meta.env?.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
+  const cleanBase = base.endsWith('/api') ? base.slice(0, -4) : base;
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${cleanBase}${cleanPath}`;
+}
+
 export async function extractReceipt(receiptFile, currency) {
-  const URL = '/api/extract-receipt';
+  const URL = getApiUrl('/api/extract-receipt');
 
   const formData = new FormData();
   formData.append('image', receiptFile);
@@ -106,7 +113,7 @@ export function buildFinalizePayload({ receipt = {}, people = [], assignments = 
 }
 
 export async function finalizeBill(payload) {
-  const URL = '/api/bills';
+  const URL = getApiUrl('/api/bills');
 
   try {
     const response = await axios.post(URL, payload, { timeout: 15000 });
@@ -136,7 +143,7 @@ export async function getBill(shareCode) {
     throw error;
   }
   const cleanCode = encodeURIComponent(shareCode.trim());
-  const URL = `/api/bills/${cleanCode}`;
+  const URL = getApiUrl(`/api/bills/${cleanCode}`);
 
   try {
     const response = await axios.get(URL, { timeout: 10000 });
