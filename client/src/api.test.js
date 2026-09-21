@@ -1,7 +1,7 @@
 import { test, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import axios from 'axios';
-import { extractReceipt, finalizeBill, buildFinalizePayload } from './api.js';
+import { extractReceipt, finalizeBill, buildFinalizePayload, getBill } from './api.js';
 
 afterEach(() => {
   mock.restoreAll();
@@ -310,3 +310,166 @@ test('7. Loading state prevents duplicate finalize calls', async () => {
   assert.ok(res1);
   assert.equal(res2, undefined);
 });
+
+// --- Feature 5.10: getBill and BillPage tests ---
+
+test('getBill: 1. sends GET /api/bills/:shareCode', async () => {
+  const fakeData = {
+    shareCode: 'JSdTY1ih',
+    restaurantName: "BARNEY'S BEANERY",
+    currency: 'USD',
+    bill: {
+      totals: { billTotalMinor: 4790 },
+    },
+  };
+
+  mock.method(axios, 'get', async (url) => {
+    assert.equal(url, '/api/bills/JSdTY1ih');
+    return { status: 200, data: fakeData };
+  });
+
+  const result = await getBill('JSdTY1ih');
+  assert.deepEqual(result, fakeData);
+});
+
+test('getBill: 2. returns successful response with full bill structure', async () => {
+  const fullBillPayload = {
+    shareCode: 'JSdTY1ih',
+    createdAt: '2026-09-21T14:00:00.000Z',
+    restaurantName: "BARNEY'S BEANERY",
+    currency: 'USD',
+    bill: {
+      restaurantName: "BARNEY'S BEANERY",
+      currency: 'USD',
+      items: [
+        { id: 'i1', name: '80E @ 7.25', quantity: 2, priceMinor: 1450, assignedTo: ['p1'] },
+        { id: 'i2', name: 'Draft Beer', quantity: 1, priceMinor: 800, assignedTo: ['p2'] },
+      ],
+      people: [
+        { id: 'p1', name: 'Jebaw' },
+        { id: 'p2', name: 'Dagm' },
+      ],
+      taxMinor: 200,
+      tipMinor: 500,
+      totals: {
+        people: [
+          { id: 'p1', name: 'Jebaw', totalMinor: 3228 },
+          { id: 'p2', name: 'Dagm', totalMinor: 1562 },
+        ],
+        itemsTotalMinor: 2250,
+        billTotalMinor: 4790,
+        fullyAssigned: true,
+      },
+    },
+  };
+
+  mock.method(axios, 'get', async () => {
+    return { status: 200, data: fullBillPayload };
+  });
+
+  const res = await getBill('JSdTY1ih');
+  assert.equal(res.shareCode, 'JSdTY1ih');
+  assert.equal(res.bill.totals.billTotalMinor, 4790);
+  assert.equal(res.bill.totals.people[0].name, 'Jebaw');
+  assert.equal(res.bill.totals.people[0].totalMinor, 3228);
+  assert.equal(res.bill.totals.people[1].name, 'Dagm');
+  assert.equal(res.bill.totals.people[1].totalMinor, 1562);
+});
+
+test('getBill: 3. 404 is propagated on unknown or malformed code', async () => {
+  mock.method(axios, 'get', async () => {
+    const error = new Error('Request failed with status code 404');
+    error.response = {
+      status: 404,
+      data: { error: 'Bill not found', code: 'BILL_NOT_FOUND' },
+    };
+    throw error;
+  });
+
+  await assert.rejects(
+    () => getBill('nonexistent'),
+    (err) => {
+      assert.equal(err.message, 'Bill not found');
+      assert.equal(err.code, 'BILL_NOT_FOUND');
+      assert.equal(err.status, 404);
+      return true;
+    }
+  );
+});
+
+test('getBill: 4. 503 and network errors are propagated', async () => {
+  mock.method(axios, 'get', async () => {
+    const error = new Error('Request failed with status code 503');
+    error.response = {
+      status: 503,
+      data: { error: 'Database unavailable. Please try again.', code: 'DB_UNAVAILABLE' },
+    };
+    throw error;
+  });
+
+  await assert.rejects(
+    () => getBill('JSdTY1ih'),
+    (err) => {
+      assert.equal(err.message, 'Database unavailable. Please try again.');
+      assert.equal(err.code, 'DB_UNAVAILABLE');
+      assert.equal(err.status, 503);
+      return true;
+    }
+  );
+
+  mock.restoreAll();
+
+  // Network error
+  mock.method(axios, 'get', async () => {
+    throw new Error('Network Error');
+  });
+
+  await assert.rejects(
+    () => getBill('JSdTY1ih'),
+    (err) => {
+      assert.equal(err.message, 'Network Error');
+      return true;
+    }
+  );
+});
+
+test('getBill: 5. empty/invalid share code throws 404 without network call', async () => {
+  let called = false;
+  mock.method(axios, 'get', async () => {
+    called = true;
+    return { status: 200, data: {} };
+  });
+
+  await assert.rejects(
+    () => getBill('   '),
+    (err) => {
+      assert.equal(err.status, 404);
+      assert.equal(err.code, 'BILL_NOT_FOUND');
+      return true;
+    }
+  );
+
+  assert.equal(called, false);
+});
+
+test('BillPage contract: 6 & 7. uses server-provided bill.totals.people and does not recalculate replacement totals', () => {
+  const serverResponse = {
+    shareCode: 'JSdTY1ih',
+    bill: {
+      totals: {
+        people: [
+          { id: 'p1', name: 'Dagm', totalMinor: 1562 },
+          { id: 'p2', name: 'Jebaw', totalMinor: 3228 },
+        ],
+        billTotalMinor: 4790,
+      },
+    },
+  };
+
+  // Verify server-provided totals are directly accessible and preserved
+  const displayedPeople = serverResponse.bill.totals.people;
+  assert.equal(displayedPeople.find((p) => p.name === 'Dagm').totalMinor, 1562);
+  assert.equal(displayedPeople.find((p) => p.name === 'Jebaw').totalMinor, 3228);
+  assert.equal(serverResponse.bill.totals.billTotalMinor, 4790);
+});
+

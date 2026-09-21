@@ -125,7 +125,7 @@ export default function FinalizedPage() {
         )}
       </div>
 
-      {/* Feature 5.10 Notice Card */}
+      {/* Shared Bill Info Card */}
       <div
         style={{
           backgroundColor: '#eff6ff',
@@ -139,20 +139,32 @@ export default function FinalizedPage() {
         }}
       >
         <div style={{ fontWeight: 600, marginBottom: 4 }}>
-          Shared Bill View
+          Shared Bill
         </div>
         <div>
-          The full shared bill view for participants will be implemented in Feature 5.10.
+          Your friends can open this link to see what they owe.
         </div>
       </div>
 
-      <Link
-        to="/"
-        className="btn-secondary"
-        style={{ alignSelf: 'center', textDecoration: 'none', textAlign: 'center' }}
-      >
-        Back to Home
-      </Link>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+        {shareCode && (
+          <Link
+            to={`/b/${shareCode}`}
+            className="btn-primary"
+            style={{ textDecoration: 'none', textAlign: 'center', width: '100%' }}
+          >
+            View Shared Bill
+          </Link>
+        )}
+
+        <Link
+          to="/"
+          className="btn-secondary"
+          style={{ textDecoration: 'none', textAlign: 'center' }}
+        >
+          Back to Home
+        </Link>
+      </div>
     </div>
   );
 }

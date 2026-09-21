@@ -115,3 +115,29 @@ export async function finalizeBill(payload) {
     throw error;
   }
 }
+
+export async function getBill(shareCode) {
+  if (typeof shareCode !== 'string' || !shareCode.trim()) {
+    const error = new Error('Bill not found');
+    error.code = 'BILL_NOT_FOUND';
+    error.status = 404;
+    throw error;
+  }
+  const cleanCode = encodeURIComponent(shareCode.trim());
+  const URL = `/api/bills/${cleanCode}`;
+
+  try {
+    const response = await axios.get(URL);
+    return response.data;
+  } catch (err) {
+    const message =
+      err.response?.data?.error ||
+      err.message ||
+      'Failed to load bill. Please try again.';
+    const error = new Error(message);
+    error.code = err.response?.data?.code;
+    error.status = err.response?.status;
+    error.response = err.response;
+    throw error;
+  }
+}
