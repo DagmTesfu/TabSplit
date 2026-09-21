@@ -33,6 +33,7 @@ function db() {
 }
 
 // Map internal error codes to HTTP responses in the existing API error style.
+// Unhandled or 500 errors always receive a sanitized message without leaking internals.
 function sendError(res, error) {
   const status = {
     INVALID_BILL: 400,
@@ -40,8 +41,12 @@ function sendError(res, error) {
     UNASSIGNED_ITEMS: 400,
     DB_NOT_CONFIGURED: 503,
     DB_UNAVAILABLE: 503,
-  }[error.code] || 500;
-  return res.status(status).json({ error: error.message, code: error.code || 'INTERNAL_ERROR' });
+  }[error.code];
+
+  if (!status) {
+    return res.status(500).json({ error: 'An unexpected error occurred. Please try again.', code: 'INTERNAL_ERROR' });
+  }
+  return res.status(status).json({ error: error.message, code: error.code });
 }
 
 function toShareUrl(shareCode) {

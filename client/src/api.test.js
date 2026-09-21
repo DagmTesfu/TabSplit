@@ -591,4 +591,79 @@ test('getApiUrl: prepends custom base URL and avoids duplicate /api or trailing 
   assert.equal(customUrlResolution(undefined, '/api/bills'), '/api/bills');
 });
 
+// --- Feature 5.12.5.4: Error sanitization & Rate-limiting tests ---
+
+test('extractReceipt: handles 429 RATE_LIMITED gracefully with user message', async () => {
+  mock.method(axios, 'post', async () => {
+    const error = new Error('Request failed with status code 429');
+    error.response = {
+      status: 429,
+      data: {
+        error: 'Too many receipt extraction requests. Please try again later.',
+        code: 'RATE_LIMITED',
+      },
+    };
+    throw error;
+  });
+
+  const fakeBlob = new Blob(['fake-image-bytes'], { type: 'image/jpeg' });
+  await assert.rejects(
+    () => extractReceipt(fakeBlob, 'USD'),
+    (err) => {
+      assert.equal(err.message, 'Too many receipt extraction requests. Please try again later.');
+      assert.equal(err.code, 'RATE_LIMITED');
+      assert.equal(err.status, 429);
+      return true;
+    }
+  );
+});
+
+test('finalizeBill: handles 429 RATE_LIMITED gracefully with user message', async () => {
+  mock.method(axios, 'post', async () => {
+    const error = new Error('Request failed with status code 429');
+    error.response = {
+      status: 429,
+      data: {
+        error: 'Too many bill requests. Please try again later.',
+        code: 'RATE_LIMITED',
+      },
+    };
+    throw error;
+  });
+
+  await assert.rejects(
+    () => finalizeBill({}),
+    (err) => {
+      assert.equal(err.message, 'Too many bill requests. Please try again later.');
+      assert.equal(err.code, 'RATE_LIMITED');
+      assert.equal(err.status, 429);
+      return true;
+    }
+  );
+});
+
+test('getBill: handles 429 RATE_LIMITED gracefully with user message', async () => {
+  mock.method(axios, 'get', async () => {
+    const error = new Error('Request failed with status code 429');
+    error.response = {
+      status: 429,
+      data: {
+        error: 'Too many requests. Please try again later.',
+        code: 'RATE_LIMITED',
+      },
+    };
+    throw error;
+  });
+
+  await assert.rejects(
+    () => getBill('JSdTY1ih'),
+    (err) => {
+      assert.equal(err.message, 'Too many requests. Please try again later.');
+      assert.equal(err.code, 'RATE_LIMITED');
+      assert.equal(err.status, 429);
+      return true;
+    }
+  );
+});
+
 

@@ -25,6 +25,10 @@ export async function extractReceipt(receiptFile, currency) {
       message = err.response.data.error;
     } else if (err.response?.status === 413) {
       message = 'Receipt image is too large (max 5 MB).';
+    } else if (err.response?.status === 429) {
+      message = 'Too many receipt extraction requests. Please try again later.';
+    } else if (err.response?.status === 422) {
+      message = 'The receipt could not be read completely. Try a clearer photo.';
     } else if (err.response?.status === 503) {
       message = err.response.data?.error || 'Receipt scanning is temporarily unavailable. Please try again later.';
     } else if (err.response?.status === 502 || err.response?.status === 504) {
@@ -124,6 +128,8 @@ export async function finalizeBill(payload) {
       message = 'Finalization timed out. Please check your connection and try again.';
     } else if (err.response?.data?.error) {
       message = err.response.data.error;
+    } else if (err.response?.status === 429) {
+      message = 'Too many requests. Please try again later.';
     } else if (err.response?.status === 503) {
       message = err.response.data?.error || 'Database is temporarily unavailable. Please try again later.';
     }
@@ -156,6 +162,8 @@ export async function getBill(shareCode) {
       message = err.response.data.error;
     } else if (err.response?.status === 404) {
       message = 'Bill not found';
+    } else if (err.response?.status === 429) {
+      message = 'Too many requests. Please try again later.';
     } else if (err.response?.status === 503) {
       message = err.response.data?.error || 'Database is temporarily unavailable. Please try again later.';
     }

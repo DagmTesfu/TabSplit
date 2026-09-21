@@ -5,17 +5,18 @@ export function notFoundHandler(req, res) {
 }
 
 // Emit one short line per request: method, path, status. Never logs bodies,
-// query strings, headers or credentials.
+// query strings, headers, IP addresses or credentials.
 export function requestLogger(req, res, next) {
   res.on('finish', () => {
-    console.log(`${req.method} ${req.originalUrl} -> ${res.statusCode}`);
+    const cleanPath = req.baseUrl ? `${req.baseUrl}${req.path}` : (req.path || req.originalUrl?.split('?')[0] || '/');
+    console.log(`${req.method} ${cleanPath} -> ${res.statusCode}`);
   });
   next();
 }
 
 // Express requires four arguments to recognize error middleware.
-// Logs only safe metadata (error type/code, message) — never bodies, images,
-// credentials or provider payloads.
+// Logs only safe metadata (method, clean path, error code/name) — never bodies, images,
+// credentials, stack traces, or provider payloads.
 export function errorHandler(err, req, res, next) {
   if (res.headersSent) return next(err);
   if (err?.type === 'entity.parse.failed') {
@@ -24,6 +25,8 @@ export function errorHandler(err, req, res, next) {
   if (err?.type === 'entity.too.large' || err?.statusCode === 413) {
     return res.status(413).json({ error: 'Request body is too large (max 1 MB).', code: 'PAYLOAD_TOO_LARGE' });
   }
-  console.error(`error ${req.method} ${req.originalUrl} [${err?.code || err?.name || 'Error'}] ${err?.message || 'unknown'}`);
+  const cleanPath = req.baseUrl ? `${req.baseUrl}${req.path}` : (req.path || req.originalUrl?.split('?')[0] || '/');
+  const safeCode = err?.code || err?.name || 'Error';
+  console.error(`[ERROR] ${req.method} ${cleanPath} [${safeCode}]`);
   res.status(500).json({ error: 'Something went wrong. Please try again.' });
 }
