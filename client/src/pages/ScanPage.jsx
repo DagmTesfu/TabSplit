@@ -40,11 +40,22 @@ export default function ScanPage() {
       return;
     }
 
-    const url = URL.createObjectURL(receiptFile);
-    setPreviewUrl(url);
+    let url = null;
+    try {
+      url = URL.createObjectURL(receiptFile);
+      setPreviewUrl(url);
+    } catch (err) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPreviewUrl(e.target.result);
+      };
+      reader.readAsDataURL(receiptFile);
+    }
 
     return () => {
-      URL.revokeObjectURL(url);
+      if (url) {
+        URL.revokeObjectURL(url);
+      }
     };
   }, [receiptFile]);
 
@@ -103,12 +114,18 @@ export default function ScanPage() {
     }
   };
 
-  const handleFileChange = (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
+  const isAllowedImageType = (file) => {
+    if (!file) return false;
+    if (allowedTypes.includes(file.type)) return true;
+    // Android Gallery fallback: check filename extension if MIME type is missing or generic
+    const name = (file.name || '').toLowerCase();
+    return name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || name.endsWith('.webp');
+  };
+
+  const handleFileSelected = (file) => {
     if (!file) return;
 
-    if (!allowedTypes.includes(file.type)) {
+    if (!isAllowedImageType(file)) {
       setFileError('Please select a JPEG, PNG, or WebP image.');
       setReceiptFile(null);
       return;
@@ -120,9 +137,43 @@ export default function ScanPage() {
       return;
     }
 
+    // Ensure normalized MIME type for mobile browsers (e.g. image/jpg or empty string -> image/jpeg)
+    let normalizedFile = file;
+    let mimeType = file.type;
+    if (!mimeType || mimeType === 'image/jpg' || mimeType === 'image/pjpeg') {
+      const name = (file.name || '').toLowerCase();
+      if (name.endsWith('.png')) mimeType = 'image/png';
+      else if (name.endsWith('.webp')) mimeType = 'image/webp';
+      else mimeType = 'image/jpeg';
+      normalizedFile = new File([file], file.name || 'receipt.jpg', { type: mimeType });
+    }
+
     setFileError(null);
     setScanError(null);
-    setReceiptFile(file);
+    setReceiptFile(normalizedFile);
+  };
+
+  const handleInputChange = (event) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleFileSelected(file);
+    }
+  };
+
+  const openPicker = (inputRef) => {
+    if (inputRef.current) {
+      // Clear value so re-selecting the exact same image triggers onChange
+      inputRef.current.value = '';
+      inputRef.current.click();
+    }
+  };
+
+  const handleRemove = () => {
+    if (isScanning) return;
+    setReceiptFile(null);
+    setPreviewUrl(null);
+    setFileError(null);
+    setScanError(null);
   };
 
   return (
@@ -177,7 +228,7 @@ export default function ScanPage() {
         accept="image/jpeg,image/png,image/webp"
         capture="environment"
         disabled={isScanning}
-        onChange={handleFileChange}
+        onChange={handleInputChange}
         style={{ display: 'none' }}
       />
       <input
@@ -186,7 +237,7 @@ export default function ScanPage() {
         type="file"
         accept="image/jpeg,image/png,image/webp"
         disabled={isScanning}
-        onChange={handleFileChange}
+        onChange={handleInputChange}
         style={{ display: 'none' }}
       />
 
@@ -227,7 +278,7 @@ export default function ScanPage() {
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
               <button
                 type="button"
-                onClick={() => cameraInputRef.current?.click()}
+                onClick={() => openPicker(cameraInputRef)}
                 disabled={isScanning}
                 style={{
                   flex: '1 1 140px',
@@ -248,12 +299,12 @@ export default function ScanPage() {
                   touchAction: 'manipulation',
                 }}
               >
-                <span>📸</span> Take Photo
+                <span>📸</span> Take a photo
               </button>
 
               <button
                 type="button"
-                onClick={() => galleryInputRef.current?.click()}
+                onClick={() => openPicker(galleryInputRef)}
                 disabled={isScanning}
                 style={{
                   flex: '1 1 140px',
@@ -274,7 +325,7 @@ export default function ScanPage() {
                   touchAction: 'manipulation',
                 }}
               >
-                <span>🖼️</span> From Gallery
+                <span>🖼️</span> Choose from gallery
               </button>
             </div>
           </div>
@@ -330,7 +381,7 @@ export default function ScanPage() {
           <div style={{ marginTop: 10, display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
             <button
               type="button"
-              onClick={() => cameraInputRef.current?.click()}
+              onClick={() => openPicker(galleryInputRef)}
               disabled={isScanning}
               style={{
                 background: '#f1f5f9',
@@ -348,12 +399,12 @@ export default function ScanPage() {
                 gap: 4,
               }}
             >
-              <span>📸</span> Retake
+              <span>🖼️</span> Change receipt
             </button>
 
             <button
               type="button"
-              onClick={() => galleryInputRef.current?.click()}
+              onClick={() => openPicker(cameraInputRef)}
               disabled={isScanning}
               style={{
                 background: '#f1f5f9',
@@ -371,17 +422,12 @@ export default function ScanPage() {
                 gap: 4,
               }}
             >
-              <span>🖼️</span> Choose from Gallery
+              <span>📸</span> Take new photo
             </button>
 
             <button
               type="button"
-              onClick={() => {
-                if (!isScanning) {
-                  setReceiptFile(null);
-                  setScanError(null);
-                }
-              }}
+              onClick={handleRemove}
               disabled={isScanning}
               style={{
                 background: 'none',

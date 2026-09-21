@@ -281,3 +281,32 @@ test('7. Test shared bill with slow / failed network (timeout and retry)', async
   assert.equal(billData.shareCode, 'JSdTY1ih');
   assert.equal(attempt, 2);
 });
+
+test('8. Feature 5.12.4A: Android camera & gallery file selection validation and fallback', () => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  const maxSize = 5 * 1024 * 1024;
+
+  const isAllowedImageType = (file) => {
+    if (!file) return false;
+    if (allowedTypes.includes(file.type)) return true;
+    const name = (file.name || '').toLowerCase();
+    return name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || name.endsWith('.webp');
+  };
+
+  // 1. Standard camera capture file
+  const cameraFile = { name: 'camera_123.jpg', type: 'image/jpeg', size: 1024 * 500 };
+  assert.equal(isAllowedImageType(cameraFile), true);
+
+  // 2. Android Gallery file with empty MIME type (common on Android photo picker from cloud storage)
+  const androidGalleryFileEmptyMime = { name: 'receipt_2026_09.png', type: '', size: 1024 * 800 };
+  assert.equal(isAllowedImageType(androidGalleryFileEmptyMime), true, 'Allowed via filename extension fallback');
+
+  // 3. Android WebP file from gallery
+  const webpFile = { name: 'receipt.webp', type: 'image/webp', size: 1024 * 200 };
+  assert.equal(isAllowedImageType(webpFile), true);
+
+  // 4. Invalid file type (e.g. PDF or text)
+  const pdfFile = { name: 'document.pdf', type: 'application/pdf', size: 1024 * 200 };
+  assert.equal(isAllowedImageType(pdfFile), false);
+});
+

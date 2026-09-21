@@ -5,7 +5,10 @@
 
 export const SUPPORTED_IMAGE_TYPES = {
   'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/pjpeg': 'jpg',
   'image/png': 'png',
+  'image/x-png': 'png',
   'image/webp': 'webp',
 };
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -56,9 +59,17 @@ export function detectImageType(buffer) {
 function parseReply(reply) {
   const choice = reply?.choices?.[0];
   const text = choice?.message?.content;
-  if (choice?.finish_reason !== 'stop' || choice?.message?.refusal || typeof text !== 'string' || text.length > 64000) {
+  const invalidFinishReasons = ['length', 'content_filter'];
+
+  if (
+    invalidFinishReasons.includes(choice?.finish_reason) ||
+    choice?.message?.refusal ||
+    typeof text !== 'string' ||
+    text.length > 64000
+  ) {
     throw new AiError('INVALID_RESPONSE', 'The receipt could not be read completely. Try a clearer photo.');
   }
+
   try {
     return JSON.parse(text);
   } catch {
@@ -338,7 +349,10 @@ export async function extractReceipt(imageBuffer, imageType, currency) {
   }
   const detected = detectImageType(imageBuffer);
   if (!detected) throw new AiError('INVALID_IMAGE', 'Unsupported or corrupted image file');
-  if (detected !== imageType) throw new AiError('INVALID_IMAGE', 'Image contents do not match the declared type');
+  const canonicalType = (imageType === 'image/jpg' || imageType === 'image/pjpeg')
+    ? 'image/jpeg'
+    : (imageType === 'image/x-png' ? 'image/png' : imageType);
+  if (detected !== canonicalType) throw new AiError('INVALID_IMAGE', 'Image contents do not match the declared type');
   const prompt = extractionPrompt(code);
 
   let lastError;

@@ -636,3 +636,28 @@ test('route: provider failures are sanitized and timeouts map to 504', async () 
     mocked.mock.restore();
   }
 });
+
+test('route: handles non-standard completion finish_reasons (end_turn, eos, null)', async () => {
+  const variations = [
+    // 1. Claude/Gemini-style end_turn finish_reason
+    fakeReply(JSON.stringify(receipt), 'end_turn'),
+    // 2. Null finish_reason
+    fakeReply(JSON.stringify(receipt), null),
+    // 3. EOS finish_reason
+    fakeReply(JSON.stringify(receipt), 'eos'),
+  ];
+
+  for (const reply of variations) {
+    provider(reply);
+    await withServer(async (base) => {
+      const res = await post(base, uploadForm({ currency: 'ETB' }));
+      assert.equal(res.status, 200);
+      const data = await res.json();
+      assert.equal(data.items.length, 1);
+      assert.equal(data.items[0].name, 'Coffee');
+      assert.equal(data.items[0].priceMinor, 4000);
+    });
+  }
+});
+
+
