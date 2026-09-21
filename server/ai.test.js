@@ -409,9 +409,41 @@ test('extraction: user-selected currency is injected into the provider prompt', 
   }
 });
 
-test('extraction: refuses fenced JSON, prose, arrays, truncation and invalid content types', async () => {
+test('extraction: accepts markdown fenced JSON and safely normalizes receipt data', async () => {
   const text = JSON.stringify(receipt);
-  const replies = [fakeReply('```json\n' + text + '\n```'), fakeReply('Result: ' + text),
+  const fencedReplies = [
+    fakeReply('```json\n' + text + '\n```'),
+    fakeReply('```\n' + text + '\n```'),
+    fakeReply('Here is the receipt JSON:\n```json\n' + text + '\n```'),
+  ];
+  for (const reply of fencedReplies) {
+    const mocked = provider(reply);
+    const result = await extractReceipt(JPEG, 'image/jpeg', 'ETB');
+    assert.deepEqual(result, normalized);
+    mocked.mock.restore();
+  }
+});
+
+test('extraction: safely handles empty string optional fields (tax, tip, printedTotal)', async () => {
+  const withEmptyFields = {
+    restaurantName: 'Test Diner',
+    items: [{ name: 'Burger', price: '10.00' }],
+    tax: '',
+    tip: '',
+    printedTotal: '',
+  };
+  const mocked = provider(fakeReply(JSON.stringify(withEmptyFields)));
+  const result = await extractReceipt(JPEG, 'image/jpeg', 'USD');
+  assert.equal(result.restaurantName, 'Test Diner');
+  assert.equal(result.taxMinor, 0);
+  assert.equal(result.tipMinor, 0);
+  assert.equal(result.printedTotalMinor, null);
+  mocked.mock.restore();
+});
+
+test('extraction: refuses prose, arrays, truncation and invalid content types', async () => {
+  const text = JSON.stringify(receipt);
+  const replies = [
     fakeReply('[' + text + ']'), fakeReply(text, 'length'), fakeReply({}), fakeReply(null),
     fakeReply('not JSON'), fakeReply('x'.repeat(64001)), {},
     { choices: [{ finish_reason: 'stop', message: { content: text, refusal: 'Cannot comply' } }] },

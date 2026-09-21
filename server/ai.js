@@ -55,7 +55,27 @@ export function detectImageType(buffer) {
   return null;
 }
 
-// Do not recover embedded objects from prose, arrays, or markdown fences.
+export function cleanJsonText(rawText) {
+  if (typeof rawText !== 'string') return '';
+  let text = rawText.trim();
+  const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (match) {
+    text = match[1].trim();
+  } else if (text.startsWith('```')) {
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  }
+  return text;
+}
+
+export function sanitizeRawModelOutput(data) {
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    if (data.tax === '' || data.tax === null) delete data.tax;
+    if (data.tip === '' || data.tip === null) delete data.tip;
+    if (data.printedTotal === '' || data.printedTotal === null) delete data.printedTotal;
+  }
+  return data;
+}
+
 function parseReply(reply) {
   const choice = reply?.choices?.[0];
   const text = choice?.message?.content;
@@ -71,7 +91,9 @@ function parseReply(reply) {
   }
 
   try {
-    return JSON.parse(text);
+    const cleaned = cleanJsonText(text);
+    const parsed = JSON.parse(cleaned);
+    return sanitizeRawModelOutput(parsed);
   } catch {
     throw new AiError('INVALID_RESPONSE', 'AI reply was not valid JSON. Please try again.');
   }
@@ -287,31 +309,44 @@ If any purchased line cannot be read or represented in this format, return an em
 If this is not a receipt, return an empty items array. Do not add extra fields.`;
 }
 
+export const CANDIDATE_VISION_MODELS = [
+  'inclusionai/ling-3.0-flash-vl:free',
+  'nex-agi/nex-n2.5-pro:free',
+  'openrouter/free',
+];
+
 // Native fetch avoids an SDK dependency. Provider bodies/errors are never sent
 // back to callers, since they can contain request details or sensitive data.
-async function callOpenRouter(imageBuffer, imageType, prompt) {
+async function callOpenRouter(imageBuffer, imageType, prompt, modelOverride) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey?.trim()) {
     throw new AiError('NOT_CONFIGURED', 'Receipt extraction is not configured (missing OPENROUTER_API_KEY)');
   }
+  const model = modelOverride || process.env.OPENROUTER_MODEL || 'openrouter/free';
+  const models = (!modelOverride && !process.env.OPENROUTER_MODEL)
+    ? CANDIDATE_VISION_MODELS
+    : undefined;
+
   let reply;
   try {
+    const payload = {
+      model,
+      ...(models ? { models } : {}),
+      store: false,
+      messages: [
+        { role: 'system', content: prompt },
+        { role: 'user', content: [{ type: 'image_url', image_url: {
+          url: `data:${imageType};base64,${imageBuffer.toString('base64')}`,
+          detail: 'high',
+        } }] },
+      ],
+      max_tokens: 6000,
+    };
+
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'openrouter/free',
-        store: false,
-        messages: [
-          { role: 'system', content: prompt },
-          { role: 'user', content: [{ type: 'image_url', image_url: {
-            url: `data:${imageType};base64,${imageBuffer.toString('base64')}`,
-            detail: 'high',
-          } }] },
-        ],
-        response_format: { type: 'json_object' },
-        max_tokens: 6000,
-      }),
+      body: JSON.stringify(payload),
       signal: AbortSignal.timeout(60000),
     });
     if (!response.ok) {
@@ -358,7 +393,10 @@ export async function extractReceipt(imageBuffer, imageType, currency) {
   let lastError;
   for (let attempt = 1; attempt <= MAX_EXTRACTION_ATTEMPTS; attempt++) {
     try {
-      const raw = await callOpenRouter(imageBuffer, detected, prompt);
+      const model = attempt === 1
+        ? (process.env.OPENROUTER_MODEL || undefined)
+        : (CANDIDATE_VISION_MODELS[attempt - 1] || 'openrouter/free');
+      const raw = await callOpenRouter(imageBuffer, detected, prompt, model);
       return normalizeReceiptData(raw, code);
     } catch (error) {
       lastError = error;

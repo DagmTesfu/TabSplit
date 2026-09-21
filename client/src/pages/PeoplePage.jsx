@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { getSessionData, updateSessionData } from '../session';
 
 function currencySymbol(currency) {
   if (currency === 'USD') return '$';
@@ -59,15 +60,22 @@ const inputBaseStyle = {
 export default function PeoplePage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const receipt = location.state?.receipt;
+  const session = getSessionData();
+  const receipt = location.state?.receipt || session.receipt;
 
   const [people, setPeople] = useState(() =>
-    Array.isArray(location.state?.people) ? location.state.people : []
+    Array.isArray(location.state?.people) && location.state.people.length > 0
+      ? location.state.people
+      : (Array.isArray(session.people) ? session.people : [])
   );
   const [newName, setNewName] = useState('');
   const [error, setError] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState('');
+
+  useEffect(() => {
+    updateSessionData({ people });
+  }, [people]);
 
   if (!receipt) {
     return (
@@ -146,11 +154,13 @@ export default function PeoplePage() {
       return;
     }
     setError(null);
+    updateSessionData({ receipt, people });
+    const assignments = location.state?.assignments || session.assignments;
     navigate('/assign', {
       state: {
         receipt,
         people,
-        ...(location.state?.assignments ? { assignments: location.state.assignments } : {}),
+        ...(assignments && Object.keys(assignments).length > 0 ? { assignments } : {}),
       },
     });
   };
@@ -448,7 +458,17 @@ export default function PeoplePage() {
       {/* Back to Review */}
       <button
         type="button"
-        onClick={() => navigate('/review', { state: { receipt } })}
+        onClick={() => {
+          updateSessionData({ receipt, people });
+          const assignments = location.state?.assignments || session.assignments;
+          navigate('/review', {
+            state: {
+              receipt,
+              people,
+              ...(assignments && Object.keys(assignments).length > 0 ? { assignments } : {}),
+            },
+          });
+        }}
         className="btn-secondary"
         style={{ alignSelf: 'center' }}
       >

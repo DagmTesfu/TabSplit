@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { getSessionData, updateSessionData } from '../session';
 
 function currencySymbol(currency) {
   if (currency === 'USD') return '$';
@@ -21,12 +22,18 @@ function formatAmount(priceMinor, currency) {
 export default function AssignPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const receipt = location.state?.receipt;
-  const people = location.state?.people;
+  const session = getSessionData();
+  const receipt = location.state?.receipt || session.receipt;
+  const people = Array.isArray(location.state?.people) && location.state.people.length > 0
+    ? location.state.people
+    : (Array.isArray(session.people) && session.people.length > 0 ? session.people : []);
 
   const [assignments, setAssignments] = useState(() => {
-    if (location.state?.assignments && typeof location.state.assignments === 'object') {
+    if (location.state?.assignments && typeof location.state.assignments === 'object' && Object.keys(location.state.assignments).length > 0) {
       return location.state.assignments;
+    }
+    if (session.assignments && typeof session.assignments === 'object' && Object.keys(session.assignments).length > 0) {
+      return session.assignments;
     }
     const initial = {};
     if (Array.isArray(receipt?.items)) {
@@ -36,6 +43,10 @@ export default function AssignPage() {
     }
     return initial;
   });
+
+  useEffect(() => {
+    updateSessionData({ assignments });
+  }, [assignments]);
 
   if (!receipt || !Array.isArray(people) || people.length === 0) {
     return (
@@ -66,6 +77,7 @@ export default function AssignPage() {
   };
 
   const handleContinue = () => {
+    updateSessionData({ receipt, people, assignments });
     navigate('/summary', {
       state: {
         receipt,
@@ -262,7 +274,10 @@ export default function AssignPage() {
       {/* Back to People */}
       <button
         type="button"
-        onClick={() => navigate('/people', { state: { receipt, people, assignments } })}
+        onClick={() => {
+          updateSessionData({ receipt, people, assignments });
+          navigate('/people', { state: { receipt, people, assignments } });
+        }}
         className="btn-secondary"
         style={{ alignSelf: 'center' }}
       >

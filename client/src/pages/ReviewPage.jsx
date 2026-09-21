@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { getSessionData, updateSessionData } from '../session';
 
 function currencySymbol(currency) {
   if (currency === 'USD') return '$';
@@ -74,7 +75,8 @@ function createId(prefix = 'id') {
 export default function ReviewPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const receipt = location.state?.receipt;
+  const session = getSessionData();
+  const receipt = location.state?.receipt || session.receipt;
 
   if (!receipt) {
     return (
@@ -209,7 +211,18 @@ export default function ReviewPage() {
       })),
       printedTotalMinor,
     };
-    navigate('/people', { state: { receipt: confirmedReceipt } });
+    updateSessionData({ receipt: confirmedReceipt });
+    const people = Array.isArray(location.state?.people) && location.state.people.length > 0
+      ? location.state.people
+      : (Array.isArray(session.people) && session.people.length > 0 ? session.people : undefined);
+    const assignments = location.state?.assignments || session.assignments;
+    navigate('/people', {
+      state: {
+        receipt: confirmedReceipt,
+        ...(people ? { people } : {}),
+        ...(assignments && Object.keys(assignments).length > 0 ? { assignments } : {}),
+      },
+    });
   };
 
   return (

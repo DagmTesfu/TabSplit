@@ -23,14 +23,40 @@ export default function FinalizedPage() {
   }
 
   const handleCopy = async () => {
-    if (shareUrl) {
+    if (!shareUrl) return;
+
+    let success = false;
+    if (navigator.clipboard && window.isSecureContext) {
       try {
         await navigator.clipboard.writeText(shareUrl);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        success = true;
       } catch {
-        // Fallback or ignore clipboard failure
+        success = false;
       }
+    }
+
+    if (!success) {
+      // Fallback for HTTP / non-secure mobile testing contexts
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = shareUrl;
+        textarea.style.position = 'fixed';
+        textarea.style.top = '0';
+        textarea.style.left = '0';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        success = document.execCommand('copy');
+        document.body.removeChild(textarea);
+      } catch {
+        success = false;
+      }
+    }
+
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 

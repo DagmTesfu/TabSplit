@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { extractReceipt } from '../api';
+import { clearSessionData, updateSessionData } from '../session';
 
 const selectStyle = {
   width: '100%',
@@ -19,6 +20,73 @@ const selectStyle = {
   backgroundSize: '10px',
   cursor: 'pointer',
 };
+
+async function optimizeImageForScan(file) {
+  if (!file || typeof window === 'undefined' || typeof Image === 'undefined') return file;
+
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const maxDim = 1600;
+      let { width, height } = img;
+
+      // If already within optimal dimensions, use original
+      if (width <= maxDim && height <= maxDim && file.size <= 1024 * 1024) {
+        resolve(file);
+        return;
+      }
+
+      if (width > height) {
+        if (width > maxDim) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        }
+      } else {
+        if (height > maxDim) {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(file);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const cleanName = (file.name || 'receipt.jpg').replace(/\.[^/.]+$/, '') + '.jpg';
+              resolve(new File([blob], cleanName, { type: 'image/jpeg' }));
+            } else {
+              resolve(file);
+            }
+          },
+          'image/jpeg',
+          0.85
+        );
+      } catch {
+        resolve(file);
+      }
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(file);
+    };
+
+    img.src = url;
+  });
+}
 
 export default function ScanPage() {
   const [currency, setCurrency] = useState('ETB');
@@ -106,6 +174,8 @@ export default function ScanPage() {
       setFileError(null);
 
       const data = await extractReceipt(receiptFile, currency);
+      clearSessionData();
+      updateSessionData({ receipt: data, people: [], assignments: {} });
       navigate('/review', { state: { receipt: data } });
     } catch (err) {
       setScanError(err.message || 'Receipt scanning failed. Please try again.');
@@ -122,7 +192,7 @@ export default function ScanPage() {
     return name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || name.endsWith('.webp');
   };
 
-  const handleFileSelected = (file) => {
+  const handleFileSelected = async (file) => {
     if (!file) return;
 
     if (!isAllowedImageType(file)) {
@@ -150,6 +220,14 @@ export default function ScanPage() {
 
     setFileError(null);
     setScanError(null);
+
+    // Optimize high-resolution phone camera photos for fast upload and high AI accuracy
+    try {
+      normalizedFile = await optimizeImageForScan(normalizedFile);
+    } catch {
+      // If optimization fails, fallback to normalized file
+    }
+
     setReceiptFile(normalizedFile);
   };
 

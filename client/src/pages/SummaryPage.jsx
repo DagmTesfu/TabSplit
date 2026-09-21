@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { calculateAssignments } from '../calculateAssignments';
 import { finalizeBill, buildFinalizePayload } from '../api';
+import { getSessionData, clearSessionData } from '../session';
 
 function currencySymbol(currency) {
   if (currency === 'USD') return '$';
@@ -23,9 +24,14 @@ function formatAmount(priceMinor, currency) {
 export default function SummaryPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const receipt = location.state?.receipt;
-  const people = location.state?.people;
-  const assignments = location.state?.assignments;
+  const session = getSessionData();
+  const receipt = location.state?.receipt || session.receipt;
+  const people = Array.isArray(location.state?.people) && location.state.people.length > 0
+    ? location.state.people
+    : (Array.isArray(session.people) && session.people.length > 0 ? session.people : []);
+  const assignments = location.state?.assignments && typeof location.state.assignments === 'object' && Object.keys(location.state.assignments).length > 0
+    ? location.state.assignments
+    : (session.assignments || {});
 
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [submitError, setSubmitError] = useState(null);
@@ -115,6 +121,7 @@ export default function SummaryPage() {
     try {
       const payload = buildFinalizePayload({ receipt, people, assignments });
       const response = await finalizeBill(payload);
+      clearSessionData();
       navigate('/finalized', {
         state: {
           shareCode: response.shareCode,

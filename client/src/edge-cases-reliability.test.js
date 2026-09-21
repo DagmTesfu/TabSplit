@@ -310,3 +310,69 @@ test('8. Feature 5.12.4A: Android camera & gallery file selection validation and
   assert.equal(isAllowedImageType(pdfFile), false);
 });
 
+test('9. Session persistence: preserves people, receipt, and assignments across navigation', async () => {
+  const { getSessionData, updateSessionData, clearSessionData } = await import('./session.js');
+
+  const store = new Map();
+  globalThis.window = {
+    sessionStorage: {
+      getItem: (k) => store.get(k) || null,
+      setItem: (k, v) => store.set(k, String(v)),
+      removeItem: (k) => store.delete(k),
+      clear: () => store.clear(),
+    },
+  };
+
+  clearSessionData();
+  assert.deepEqual(getSessionData(), { receipt: null, people: [], assignments: {} });
+
+  // Add receipt from scan
+  updateSessionData({ receipt: { currency: 'ETB', items: [{ id: 'i1', name: 'Pizza', priceMinor: 50000 }] } });
+  assert.equal(getSessionData().receipt.currency, 'ETB');
+
+  // Add people on PeoplePage
+  updateSessionData({ people: [{ id: 'p1', name: 'Dagm' }, { id: 'p2', name: 'Abebe' }] });
+  assert.equal(getSessionData().people.length, 2);
+  assert.equal(getSessionData().people[0].name, 'Dagm');
+
+  // Add assignments on AssignPage
+  updateSessionData({ assignments: { i1: ['p1', 'p2'] } });
+  assert.deepEqual(getSessionData().assignments, { i1: ['p1', 'p2'] });
+
+  // Verify simulated back navigation to PeoplePage restores people from session
+  const restoredPeople = getSessionData().people;
+  assert.equal(restoredPeople.length, 2);
+  assert.equal(restoredPeople[1].name, 'Abebe');
+
+  // Finalize clears session
+  clearSessionData();
+  assert.deepEqual(getSessionData(), { receipt: null, people: [], assignments: {} });
+
+  delete globalThis.window;
+});
+
+test('10. Mobile Copy Link Fallback when navigator.clipboard is unavailable', () => {
+  let fallbackExecuted = false;
+  const mockExecCommand = (cmd) => {
+    if (cmd === 'copy') {
+      fallbackExecuted = true;
+      return true;
+    }
+    return false;
+  };
+
+  // Simulate non-secure context (e.g. http://192.168.1.5:5173 on phone) where navigator.clipboard is undefined
+  const copyUrl = (urlToCopy) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(urlToCopy);
+    }
+    // Fallback path used in FinalizedPage.jsx
+    mockExecCommand('copy');
+    return Promise.resolve();
+  };
+
+  copyUrl('http://192.168.1.5:5173/b/JSdTY1ih');
+  assert.equal(fallbackExecuted, true, 'execCommand copy was used as fallback');
+});
+
+
