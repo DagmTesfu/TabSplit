@@ -8,6 +8,10 @@ import { corsMiddleware } from './middleware/cors.js';
 
 const app = express();
 
+if (process.env.TRUST_PROXY) {
+  app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? 1 : process.env.TRUST_PROXY);
+}
+
 // One short log line per request; bodies and credentials are never logged.
 app.use(requestLogger);
 

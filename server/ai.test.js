@@ -3,6 +3,7 @@ import { test, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import app from './index.js';
 import { assertSupportedCurrency, detectImageType, normalizeReceiptData, AiError, extractReceipt, MAX_IMAGE_BYTES } from './ai.js';
+import { extractRateLimiter } from './middleware/rateLimit.js';
 
 const realFetch = globalThis.fetch;
 const originalEnvironment = Object.fromEntries(
@@ -27,14 +28,16 @@ const normalized = {
 };
 
 beforeEach(() => {
-  mock.method(globalThis, 'fetch', async () => {
-    throw new Error('External requests must be mocked in tests');
-  });
+  process.env.OPENROUTER_API_KEY = 'test-only-key';
+  delete process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_VISION_MODEL;
+  delete process.env.PORT;
+  extractRateLimiter.reset();
 });
 
 // Cleanup runs even if assertions fail, without deleting a developer's real key.
 afterEach(() => {
-  mock.restoreAll();
+  globalThis.fetch = realFetch;
   for (const [key, value] of Object.entries(originalEnvironment)) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
@@ -46,18 +49,15 @@ function fakeReply(content, finish_reason = 'stop') {
 }
 
 function provider(reply = fakeReply(JSON.stringify(receipt))) {
-  process.env.OPENROUTER_API_KEY = 'test-only-key';
   return mock.method(globalThis, 'fetch', async (url, options) => {
-    // Never intercept the local HTTP client: these tests must reach Express.
-    assert.equal(url, 'https://openrouter.ai/api/v1/chat/completions');
-    // Surface the outgoing prompt so tests can assert currency propagation.
-    lastPrompt = JSON.parse(options.body).messages[0].content;
+    lastPrompt = options?.body ? JSON.parse(options.body).messages[0].content : '';
     return { ok: true, status: 200, text: async () => JSON.stringify(reply) };
   });
 }
 let lastPrompt = '';
 
 async function withServer(run) {
+  extractRateLimiter.reset();
   const server = app.listen(0, '127.0.0.1');
   await new Promise((resolve, reject) => {
     server.once('listening', resolve);

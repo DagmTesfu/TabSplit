@@ -7,8 +7,10 @@ import {
   BillError, finalizeBill, generateShareCode, isValidShareCode,
 } from '../bills.js';
 import { insertBill, findBillByCode, getSupabaseClient } from '../db.js';
+import { billsRateLimiter } from '../middleware/rateLimit.js';
 
 const router = express.Router();
+router.use(billsRateLimiter);
 
 // Overridable only for tests; production always uses the real Supabase db.
 let dbOverride = null;

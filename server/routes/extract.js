@@ -2,6 +2,7 @@
 import express from 'express';
 import multer from 'multer';
 import { AiError, extractReceipt, SUPPORTED_IMAGE_TYPES, MAX_IMAGE_BYTES } from '../ai.js';
+import { extractRateLimiter } from '../middleware/rateLimit.js';
 
 const router = express.Router();
 
@@ -19,7 +20,7 @@ const upload = multer({
   { name: 'currency', maxCount: 1 },
 ]);
 
-router.post('/extract-receipt', (req, res) => {
+router.post('/extract-receipt', extractRateLimiter, (req, res) => {
   // Even extraction results should not be cached by browsers or shared proxies.
   res.set('Cache-Control', 'no-store');
   upload(req, res, async (error) => {
