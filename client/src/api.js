@@ -8,15 +8,23 @@ export async function extractReceipt(receiptFile, currency) {
   formData.append('currency', currency);
 
   try {
-    const response = await axios.post(URL, formData);
+    const response = await axios.post(URL, formData, { timeout: 70000 });
     return response.data;
   } catch (err) {
-    const message =
-      err.response?.data?.error ||
-      err.message ||
-      'Failed to scan receipt. Please try again.';
+    let message = err.message || 'Failed to scan receipt. Please try again.';
+    if (err.code === 'ECONNABORTED' || (err.message && err.message.toLowerCase().includes('timeout'))) {
+      message = 'Receipt extraction timed out. Please check your connection and try again.';
+    } else if (err.response?.data?.error) {
+      message = err.response.data.error;
+    } else if (err.response?.status === 413) {
+      message = 'Receipt image is too large (max 5 MB).';
+    } else if (err.response?.status === 503) {
+      message = err.response.data?.error || 'Receipt scanning is temporarily unavailable. Please try again later.';
+    } else if (err.response?.status === 502 || err.response?.status === 504) {
+      message = err.response.data?.error || 'Could not read receipt from vision provider. Please try again.';
+    }
     const error = new Error(message);
-    error.code = err.response?.data?.code;
+    error.code = err.response?.data?.code || (err.code === 'ECONNABORTED' ? 'PROVIDER_TIMEOUT' : 'NETWORK_ERROR');
     error.status = err.response?.status;
     error.response = err.response;
     throw error;
@@ -101,15 +109,19 @@ export async function finalizeBill(payload) {
   const URL = '/api/bills';
 
   try {
-    const response = await axios.post(URL, payload);
+    const response = await axios.post(URL, payload, { timeout: 15000 });
     return response.data;
   } catch (err) {
-    const message =
-      err.response?.data?.error ||
-      err.message ||
-      'Failed to finalize bill. Please try again.';
+    let message = err.message || 'Failed to finalize bill. Please try again.';
+    if (err.code === 'ECONNABORTED' || (err.message && err.message.toLowerCase().includes('timeout'))) {
+      message = 'Finalization timed out. Please check your connection and try again.';
+    } else if (err.response?.data?.error) {
+      message = err.response.data.error;
+    } else if (err.response?.status === 503) {
+      message = err.response.data?.error || 'Database is temporarily unavailable. Please try again later.';
+    }
     const error = new Error(message);
-    error.code = err.response?.data?.code;
+    error.code = err.response?.data?.code || (err.code === 'ECONNABORTED' ? 'TIMEOUT' : 'NETWORK_ERROR');
     error.status = err.response?.status;
     error.response = err.response;
     throw error;
@@ -127,15 +139,21 @@ export async function getBill(shareCode) {
   const URL = `/api/bills/${cleanCode}`;
 
   try {
-    const response = await axios.get(URL);
+    const response = await axios.get(URL, { timeout: 10000 });
     return response.data;
   } catch (err) {
-    const message =
-      err.response?.data?.error ||
-      err.message ||
-      'Failed to load bill. Please try again.';
+    let message = err.message || 'Failed to load bill. Please try again.';
+    if (err.code === 'ECONNABORTED' || (err.message && err.message.toLowerCase().includes('timeout'))) {
+      message = 'Request timed out. Please try again.';
+    } else if (err.response?.data?.error) {
+      message = err.response.data.error;
+    } else if (err.response?.status === 404) {
+      message = 'Bill not found';
+    } else if (err.response?.status === 503) {
+      message = err.response.data?.error || 'Database is temporarily unavailable. Please try again later.';
+    }
     const error = new Error(message);
-    error.code = err.response?.data?.code;
+    error.code = err.response?.data?.code || (err.code === 'ECONNABORTED' ? 'TIMEOUT' : 'NETWORK_ERROR');
     error.status = err.response?.status;
     error.response = err.response;
     throw error;

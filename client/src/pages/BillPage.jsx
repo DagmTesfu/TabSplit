@@ -48,14 +48,8 @@ export default function BillPage() {
     return (
       <div className="page page-center">
         <div style={{ textAlign: 'center', padding: '32px 0' }}>
-          <div
-            style={{
-              fontSize: '2rem',
-              marginBottom: 12,
-              animation: 'spin 1s linear infinite',
-            }}
-          >
-            ⏳
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+            <div className="spinner spinner-lg" />
           </div>
           <p style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 500 }}>
             Loading bill...

@@ -473,3 +473,77 @@ test('BillPage contract: 6 & 7. uses server-provided bill.totals.people and does
   assert.equal(serverResponse.bill.totals.billTotalMinor, 4790);
 });
 
+// --- Feature 5.12.3: Error & Loading Reliability tests ---
+
+test('extractReceipt: handles ECONNABORTED / timeout error gracefully', async () => {
+  mock.method(axios, 'post', async () => {
+    const error = new Error('timeout of 70000ms exceeded');
+    error.code = 'ECONNABORTED';
+    throw error;
+  });
+
+  const fakeBlob = new Blob(['fake-image-bytes'], { type: 'image/jpeg' });
+  await assert.rejects(
+    () => extractReceipt(fakeBlob, 'ETB'),
+    (err) => {
+      assert.match(err.message, /timed out/i);
+      assert.equal(err.code, 'PROVIDER_TIMEOUT');
+      return true;
+    }
+  );
+});
+
+test('extractReceipt: handles 413 IMAGE_TOO_LARGE error gracefully', async () => {
+  mock.method(axios, 'post', async () => {
+    const error = new Error('Request failed with status code 413');
+    error.response = {
+      status: 413,
+      data: { error: 'Image is too large (max 5 MB).', code: 'IMAGE_TOO_LARGE' },
+    };
+    throw error;
+  });
+
+  const fakeBlob = new Blob(['fake-image-bytes'], { type: 'image/jpeg' });
+  await assert.rejects(
+    () => extractReceipt(fakeBlob, 'USD'),
+    (err) => {
+      assert.equal(err.message, 'Image is too large (max 5 MB).');
+      assert.equal(err.status, 413);
+      return true;
+    }
+  );
+});
+
+test('finalizeBill: handles timeout error gracefully', async () => {
+  mock.method(axios, 'post', async () => {
+    const error = new Error('timeout of 15000ms exceeded');
+    error.code = 'ECONNABORTED';
+    throw error;
+  });
+
+  await assert.rejects(
+    () => finalizeBill({}),
+    (err) => {
+      assert.match(err.message, /timed out/i);
+      return true;
+    }
+  );
+});
+
+test('getBill: handles timeout error gracefully', async () => {
+  mock.method(axios, 'get', async () => {
+    const error = new Error('timeout of 10000ms exceeded');
+    error.code = 'ECONNABORTED';
+    throw error;
+  });
+
+  await assert.rejects(
+    () => getBill('JSdTY1ih'),
+    (err) => {
+      assert.match(err.message, /timed out/i);
+      return true;
+    }
+  );
+});
+
+

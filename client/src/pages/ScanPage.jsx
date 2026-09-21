@@ -26,6 +26,7 @@ export default function ScanPage() {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [fileError, setFileError] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [scanStatusMessage, setScanStatusMessage] = useState('');
   const [scanError, setScanError] = useState(null);
   const navigate = useNavigate();
   const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
@@ -45,9 +46,44 @@ export default function ScanPage() {
     };
   }, [receiptFile]);
 
+  // Timers for positive progressive scanning milestones
+  useEffect(() => {
+    if (!isScanning) {
+      setScanStatusMessage('');
+      return;
+    }
+
+    setScanStatusMessage('Reading receipt image...');
+
+    const timer1 = setTimeout(() => {
+      setScanStatusMessage('Extracting items & prices...');
+    }, 3500);
+
+    const timer2 = setTimeout(() => {
+      setScanStatusMessage('Verifying taxes & totals...');
+    }, 9000);
+
+    const timer3 = setTimeout(() => {
+      setScanStatusMessage('Organizing bill breakdown...');
+    }, 18000);
+
+    const timer4 = setTimeout(() => {
+      setScanStatusMessage('Finalizing receipt details...');
+    }, 28000);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+      clearTimeout(timer4);
+    };
+  }, [isScanning]);
+
   const handleScan = async () => {
-    if (!receiptFile) {
-      setFileError('Please select or capture a receipt image first.');
+    if (isScanning || !receiptFile) {
+      if (!receiptFile) {
+        setFileError('Please select or capture a receipt image first.');
+      }
       return;
     }
 
@@ -59,7 +95,7 @@ export default function ScanPage() {
       const data = await extractReceipt(receiptFile, currency);
       navigate('/review', { state: { receipt: data } });
     } catch (err) {
-      setScanError(err.message || 'Failed to scan receipt. Please try again.');
+      setScanError(err.message || 'Receipt scanning failed. Please try again.');
     } finally {
       setIsScanning(false);
     }
@@ -95,8 +131,13 @@ export default function ScanPage() {
         <select
           id="currency"
           value={currency}
+          disabled={isScanning}
           onChange={(event) => setCurrency(event.target.value)}
-          style={selectStyle}
+          style={{
+            ...selectStyle,
+            opacity: isScanning ? 0.6 : 1,
+            cursor: isScanning ? 'not-allowed' : 'pointer',
+          }}
         >
           <option value="ETB">ETB — Ethiopian Birr</option>
           <option value="USD">USD — US Dollar</option>
@@ -125,6 +166,7 @@ export default function ScanPage() {
           type="file"
           accept="image/jpeg,image/png,image/webp"
           capture="environment"
+          disabled={isScanning}
           onChange={(event) => {
             const file = event.target.files[0];
             if (!file) return;
@@ -153,7 +195,8 @@ export default function ScanPage() {
             fontSize: '0.9rem',
             color: 'var(--text-main)',
             backgroundColor: '#ffffff',
-            cursor: 'pointer',
+            cursor: isScanning ? 'not-allowed' : 'pointer',
+            opacity: isScanning ? 0.6 : 1,
           }}
         />
       </div>
@@ -179,30 +222,51 @@ export default function ScanPage() {
       {/* Receipt Image Preview */}
       {previewUrl && (
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <img
-            src={previewUrl}
-            alt="Receipt preview"
+          <div
             style={{
+              position: 'relative',
+              display: 'inline-block',
               maxWidth: '100%',
-              maxHeight: '260px',
-              objectFit: 'contain',
               borderRadius: '8px',
-              border: '1px solid var(--border-color)',
+              overflow: 'hidden',
               boxShadow: '0 2px 4px rgba(0, 0, 0, 0.04)',
+              border: '1px solid var(--border-color)',
             }}
-          />
+          >
+            <img
+              src={previewUrl}
+              alt="Receipt preview"
+              style={{
+                display: 'block',
+                maxWidth: '100%',
+                maxHeight: '260px',
+                objectFit: 'contain',
+                opacity: isScanning ? 0.85 : 1,
+                transition: 'opacity 0.2s ease',
+              }}
+            />
+            {isScanning && <div className="scanning-laser" />}
+          </div>
           <div style={{ marginTop: 8 }}>
             <button
               type="button"
-              onClick={() => setReceiptFile(null)}
+              onClick={() => {
+                if (!isScanning) {
+                  setReceiptFile(null);
+                  setScanError(null);
+                }
+              }}
+              disabled={isScanning}
               style={{
                 background: 'none',
                 border: 'none',
-                color: '#dc2626',
+                color: isScanning ? 'var(--text-muted)' : '#dc2626',
                 fontSize: '0.85rem',
                 fontWeight: 600,
-                cursor: 'pointer',
+                cursor: isScanning ? 'not-allowed' : 'pointer',
                 padding: '6px 10px',
+                minHeight: '36px',
+                touchAction: 'manipulation',
               }}
             >
               Remove receipt
@@ -211,25 +275,56 @@ export default function ScanPage() {
         </div>
       )}
 
-      {/* Extraction Scan Error */}
-      {scanError && (
+      {/* Loading & Status Message Card */}
+      {isScanning && (
+        <div
+          style={{
+            backgroundColor: '#eff6ff',
+            border: '1px solid #bfdbfe',
+            borderRadius: '12px',
+            padding: '16px',
+            marginBottom: 16,
+            color: '#1e40af',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div className="spinner" />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1e3a8a' }}>
+                Scanning Receipt
+              </div>
+              <div style={{ fontSize: '0.85rem', color: '#3b82f6', marginTop: 2, fontWeight: 500 }}>
+                {scanStatusMessage || 'Reading receipt image...'}
+              </div>
+            </div>
+          </div>
+          <div className="progress-track">
+            <div className="progress-bar" />
+          </div>
+        </div>
+      )}
+
+      {/* Extraction Scan Error with Retry Guidance */}
+      {scanError && !isScanning && (
         <div
           role="alert"
           style={{
             backgroundColor: '#fef2f2',
             border: '1px solid #fecaca',
             color: '#dc2626',
-            padding: '10px 14px',
+            padding: '12px 14px',
             borderRadius: '8px',
             fontSize: '0.9rem',
             marginBottom: 16,
+            lineHeight: 1.4,
           }}
         >
-          {scanError}
+          <div style={{ fontWeight: 600, marginBottom: 2 }}>Scan Failed</div>
+          <div>{scanError}</div>
         </div>
       )}
 
-      {/* Scan Button */}
+      {/* Scan / Retry Button */}
       <button
         type="button"
         onClick={handleScan}
@@ -241,13 +336,18 @@ export default function ScanPage() {
           marginBottom: 16,
         }}
       >
-        {isScanning ? 'Scanning...' : 'Scan Receipt'}
+        {isScanning ? 'Reading Receipt...' : (scanError && receiptFile ? 'Try Again' : 'Scan Receipt')}
       </button>
 
       <Link
         to="/"
         className="btn-secondary"
-        style={{ alignSelf: 'center', textDecoration: 'none' }}
+        style={{
+          alignSelf: 'center',
+          textDecoration: 'none',
+          pointerEvents: isScanning ? 'none' : 'auto',
+          opacity: isScanning ? 0.6 : 1,
+        }}
       >
         ← Back to Home
       </Link>
