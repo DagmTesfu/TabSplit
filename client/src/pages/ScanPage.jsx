@@ -257,38 +257,27 @@ export default function ScanPage() {
   return (
     <div className="page">
       {/* Page Header */}
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 20 }}>
         <h1 className="title" style={{ marginBottom: 4 }}>
           Scan Receipt
         </h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', margin: 0 }}>
-          Upload or photograph your receipt to extract items.
+        <p className="subtitle" style={{ marginBottom: 0 }}>
+          Upload or take a photo of your receipt to extract items.
         </p>
       </div>
 
       {/* Currency Selector */}
       <div style={{ marginBottom: 20 }}>
-        <label
-          htmlFor="currency"
-          style={{
-            display: 'block',
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            color: 'var(--text-muted)',
-            marginBottom: 6,
-            textTransform: 'uppercase',
-            letterSpacing: '0.04em',
-          }}
-        >
+        <label htmlFor="currency" className="form-label">
           Currency
         </label>
         <select
           id="currency"
+          className="form-select"
           value={currency}
           disabled={isScanning}
           onChange={(event) => setCurrency(event.target.value)}
           style={{
-            ...selectStyle,
             opacity: isScanning ? 0.6 : 1,
             cursor: isScanning ? 'not-allowed' : 'pointer',
           }}
@@ -322,35 +311,17 @@ export default function ScanPage() {
       {/* File Selection Card when no receipt is chosen */}
       {!receiptFile && (
         <div style={{ marginBottom: 20 }}>
-          <label
-            style={{
-              display: 'block',
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              color: 'var(--text-muted)',
-              marginBottom: 8,
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-            }}
-          >
+          <label className="form-label">
             Receipt Image
           </label>
 
-          <div
-            style={{
-              border: '2px dashed var(--border-color)',
-              borderRadius: '12px',
-              padding: '24px 16px',
-              textAlign: 'center',
-              backgroundColor: '#fafbfc',
-            }}
-          >
-            <div style={{ fontSize: '2.25rem', marginBottom: 8 }}>🧾</div>
-            <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: 4 }}>
+          <div className="card-dashed">
+            <div style={{ fontSize: '2.5rem', marginBottom: 10 }}>🧾</div>
+            <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: 4 }}>
               Add your receipt
             </div>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 18 }}>
-              Take a photo with your camera or select an image from your gallery
+            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: 18, maxWidth: '280px', margin: '0 auto 18px' }}>
+              Take a photo or choose an existing receipt image from your gallery
             </p>
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -358,23 +329,12 @@ export default function ScanPage() {
                 type="button"
                 onClick={() => openPicker(cameraInputRef)}
                 disabled={isScanning}
+                className="btn-secondary"
                 style={{
                   flex: '1 1 140px',
                   minHeight: '48px',
-                  padding: '10px 16px',
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '8px',
-                  color: 'var(--text-main)',
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  fontWeight: 700,
                   gap: 8,
-                  cursor: isScanning ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
-                  touchAction: 'manipulation',
                 }}
               >
                 <span>📸</span> Take a photo
@@ -384,26 +344,15 @@ export default function ScanPage() {
                 type="button"
                 onClick={() => openPicker(galleryInputRef)}
                 disabled={isScanning}
+                className="btn-secondary"
                 style={{
                   flex: '1 1 140px',
                   minHeight: '48px',
-                  padding: '10px 16px',
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '8px',
-                  color: 'var(--text-main)',
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  fontWeight: 700,
                   gap: 8,
-                  cursor: isScanning ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
-                  touchAction: 'manipulation',
                 }}
               >
-                <span>🖼️</span> Choose from gallery
+                <span>🖼️</span> Choose gallery
               </button>
             </div>
           </div>
@@ -412,23 +361,12 @@ export default function ScanPage() {
 
       {/* File Validation Error */}
       {fileError && (
-        <div
-          role="alert"
-          style={{
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fecaca',
-            color: '#dc2626',
-            padding: '10px 14px',
-            borderRadius: '8px',
-            fontSize: '0.9rem',
-            marginBottom: 16,
-          }}
-        >
+        <div role="alert" className="alert-box alert-error">
           {fileError}
         </div>
       )}
 
-      {/* Receipt Image Preview */}
+      {/* Receipt Image Preview Card */}
       {previewUrl && (
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div
@@ -436,10 +374,11 @@ export default function ScanPage() {
               position: 'relative',
               display: 'inline-block',
               maxWidth: '100%',
-              borderRadius: '8px',
+              borderRadius: 'var(--radius-lg)',
               overflow: 'hidden',
-              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.04)',
-              border: '1px solid var(--border-color)',
+              boxShadow: 'var(--shadow-md)',
+              border: '1px solid var(--color-border)',
+              backgroundColor: '#000000',
             }}
           >
             <img
@@ -450,74 +389,49 @@ export default function ScanPage() {
                 maxWidth: '100%',
                 maxHeight: '260px',
                 objectFit: 'contain',
-                opacity: isScanning ? 0.85 : 1,
+                opacity: isScanning ? 0.8 : 1,
                 transition: 'opacity 0.2s ease',
               }}
             />
             {isScanning && <div className="scanning-laser" />}
           </div>
-          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
+
+          <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={() => openPicker(galleryInputRef)}
               disabled={isScanning}
+              className="btn-secondary"
               style={{
-                background: '#f1f5f9',
-                border: '1px solid var(--border-color)',
-                color: isScanning ? 'var(--text-muted)' : 'var(--text-main)',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                cursor: isScanning ? 'not-allowed' : 'pointer',
+                fontSize: '0.85rem',
                 padding: '6px 12px',
-                borderRadius: '6px',
-                minHeight: '34px',
-                touchAction: 'manipulation',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
+                minHeight: '38px',
+                gap: 6,
               }}
             >
-              <span>🖼️</span> Change receipt
+              <span>🖼️</span> Change image
             </button>
 
             <button
               type="button"
               onClick={() => openPicker(cameraInputRef)}
               disabled={isScanning}
+              className="btn-secondary"
               style={{
-                background: '#f1f5f9',
-                border: '1px solid var(--border-color)',
-                color: isScanning ? 'var(--text-muted)' : 'var(--text-main)',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                cursor: isScanning ? 'not-allowed' : 'pointer',
+                fontSize: '0.85rem',
                 padding: '6px 12px',
-                borderRadius: '6px',
-                minHeight: '34px',
-                touchAction: 'manipulation',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
+                minHeight: '38px',
+                gap: 6,
               }}
             >
-              <span>📸</span> Take new photo
+              <span>📸</span> Retake photo
             </button>
 
             <button
               type="button"
               onClick={handleRemove}
               disabled={isScanning}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: isScanning ? 'var(--text-muted)' : '#dc2626',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                cursor: isScanning ? 'not-allowed' : 'pointer',
-                padding: '6px 10px',
-                minHeight: '34px',
-                touchAction: 'manipulation',
-              }}
+              className="btn-danger-ghost"
             >
               Remove
             </button>
@@ -527,23 +441,14 @@ export default function ScanPage() {
 
       {/* Loading & Status Message Card */}
       {isScanning && (
-        <div
-          style={{
-            backgroundColor: '#eff6ff',
-            border: '1px solid #bfdbfe',
-            borderRadius: '12px',
-            padding: '16px',
-            marginBottom: 16,
-            color: '#1e40af',
-          }}
-        >
+        <div className="alert-box alert-info" style={{ padding: '16px', marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div className="spinner" />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1e3a8a' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1e3a8a' }}>
                 Scanning Receipt
               </div>
-              <div style={{ fontSize: '0.85rem', color: '#3b82f6', marginTop: 2, fontWeight: 500 }}>
+              <div style={{ fontSize: '0.85rem', color: '#2563eb', marginTop: 2, fontWeight: 500 }}>
                 {scanStatusMessage || 'Reading receipt image...'}
               </div>
             </div>
@@ -556,20 +461,8 @@ export default function ScanPage() {
 
       {/* Extraction Scan Error with Retry Guidance */}
       {scanError && !isScanning && (
-        <div
-          role="alert"
-          style={{
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fecaca',
-            color: '#dc2626',
-            padding: '12px 14px',
-            borderRadius: '8px',
-            fontSize: '0.9rem',
-            marginBottom: 16,
-            lineHeight: 1.4,
-          }}
-        >
-          <div style={{ fontWeight: 600, marginBottom: 2 }}>Scan Failed</div>
+        <div role="alert" className="alert-box alert-error" style={{ marginBottom: 20 }}>
+          <div style={{ fontWeight: 700, marginBottom: 2 }}>Scan Failed</div>
           <div>{scanError}</div>
         </div>
       )}
@@ -581,8 +474,6 @@ export default function ScanPage() {
         disabled={isScanning || !receiptFile}
         className="btn-primary"
         style={{
-          opacity: isScanning || !receiptFile ? 0.65 : 1,
-          cursor: isScanning || !receiptFile ? 'not-allowed' : 'pointer',
           marginBottom: 16,
         }}
       >

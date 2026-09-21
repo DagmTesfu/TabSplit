@@ -15,7 +15,8 @@ export default function App() {
       <div className="app-container">
         <header className="app-header">
           <Link to="/" className="brand-link">
-            TabSplit
+            <span>🧾</span>
+            <span>TabSplit</span>
           </Link>
         </header>
 
