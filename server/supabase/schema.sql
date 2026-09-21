@@ -19,7 +19,6 @@ create table bills (
   assigned_total_minor   bigint not null check (assigned_total_minor >= 0),
   unassigned_total_minor bigint not null check (unassigned_total_minor >= 0),
   created_at     timestamptz not null default now(),
-  check (total_minor = items_total_minor + tax_minor + tip_minor),
   check (assigned_total_minor + unassigned_total_minor = total_minor)
 );
 

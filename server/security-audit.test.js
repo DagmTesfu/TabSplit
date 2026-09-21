@@ -1,8 +1,10 @@
 import { test, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import app from './index.js';
 import { setBillDbForTesting } from './routes/bills.js';
-import { extractRateLimiter } from './middleware/rateLimit.js';
+import { extractRateLimiter, billsRateLimiter } from './middleware/rateLimit.js';
 
 const realFetch = globalThis.fetch;
 const originalEnv = { ...process.env };
@@ -12,6 +14,7 @@ beforeEach(() => {
   process.env.SUPABASE_URL = 'https://secret-project.supabase.co';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'secret-service-role-key-99999';
   extractRateLimiter.reset();
+  billsRateLimiter.reset();
 });
 
 afterEach(() => {
@@ -160,4 +163,111 @@ test('Security Audit: Rate-limit 429 response contains safe headers and no inter
     assert.equal(body.stack, undefined);
     assert.doesNotMatch(JSON.stringify(body), /127\.0\.0\.1|store|Map|size/);
   });
+});
+
+test('Security Audit: Client-supplied fake totals cannot override server calculations', async () => {
+  let savedRow = null;
+  setBillDbForTesting({
+    insertBill: async (row) => {
+      savedRow = row;
+      return { data: { share_code: row.share_code }, error: null };
+    },
+    findBillByCode: async () => ({ data: null, error: null }),
+  });
+
+  await withServer(async (base) => {
+    const maliciousPayload = {
+      restaurantName: 'Test Cafe',
+      currency: 'USD',
+      items: [
+        { id: 'i1', name: 'Steak', priceMinor: 5000, assignedTo: ['p1'] },
+      ],
+      people: [{ id: 'p1', name: 'Attacker' }],
+      taxMinor: 500,
+      tipMinor: 500,
+      // Attacker attempts to forge bill total as $1.00 instead of $60.00
+      totalMinor: 100,
+      billTotalMinor: 100,
+      assignedTotalMinor: 100,
+      unassignedTotalMinor: 0,
+      peopleTotals: [{ id: 'p1', name: 'Attacker', totalMinor: 100 }],
+    };
+
+    const res = await fetch(`${base}/api/bills`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(maliciousPayload),
+    });
+
+    assert.equal(res.status, 201);
+    const body = await res.json();
+    // Server calculated: 5000 + 500 + 500 = 6000
+    assert.equal(body.bill.totals.billTotalMinor, 6000);
+    assert.equal(body.bill.totals.people[0].totalMinor, 6000);
+    assert.equal(savedRow.total_minor, 6000);
+    assert.equal(savedRow.assigned_total_minor, 6000);
+    assert.equal(savedRow.status, 'finalized');
+  });
+});
+
+test('Security Audit: Unknown person IDs in assignments and duplicate item IDs are rejected with 400', async () => {
+  setBillDbForTesting({
+    insertBill: async (row) => ({ data: { share_code: row.share_code }, error: null }),
+    findBillByCode: async () => ({ data: null, error: null }),
+  });
+
+  await withServer(async (base) => {
+    // 1. Unknown person ID
+    const unknownPersonRes = await fetch(`${base}/api/bills`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        currency: 'USD',
+        items: [{ id: 'i1', name: 'Drink', priceMinor: 500, assignedTo: ['nonexistent-person-id'] }],
+        people: [{ id: 'p1', name: 'Real Person' }],
+      }),
+    });
+    assert.equal(unknownPersonRes.status, 400);
+    const unknownBody = await unknownPersonRes.json();
+    assert.equal(unknownBody.code, 'INVALID_BILL');
+
+    // 2. Duplicate item ID
+    const duplicateItemRes = await fetch(`${base}/api/bills`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        currency: 'USD',
+        items: [
+          { id: 'i1', name: 'Drink 1', priceMinor: 500, assignedTo: ['p1'] },
+          { id: 'i1', name: 'Drink 2', priceMinor: 500, assignedTo: ['p1'] },
+        ],
+        people: [{ id: 'p1', name: 'Real Person' }],
+      }),
+    });
+    assert.equal(duplicateItemRes.status, 400);
+    const duplicateBody = await duplicateItemRes.json();
+    assert.equal(duplicateBody.code, 'INVALID_BILL');
+  });
+});
+
+test('Security Audit: Client codebase does not import Supabase or reference service-role keys', () => {
+  const clientSrcDir = join(process.cwd(), '..', 'client', 'src');
+  
+  function scanDir(dir) {
+    const entries = readdirSync(dir);
+    for (const entry of entries) {
+      const fullPath = join(dir, entry);
+      const stat = statSync(fullPath);
+      if (stat.isDirectory()) {
+        scanDir(fullPath);
+      } else if (/\.(jsx?|tsx?|html|css)$/.test(entry)) {
+        const content = readFileSync(fullPath, 'utf8');
+        assert.doesNotMatch(content, /@supabase\/supabase-js/i, `Found Supabase client in ${entry}`);
+        assert.doesNotMatch(content, /SUPABASE_SERVICE_ROLE_KEY/i, `Found service-role key in ${entry}`);
+        assert.doesNotMatch(content, /service_role/i, `Found service_role in ${entry}`);
+      }
+    }
+  }
+
+  scanDir(clientSrcDir);
 });

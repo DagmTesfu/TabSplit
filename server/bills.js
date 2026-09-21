@@ -113,11 +113,14 @@ export function validateBillRequest(input) {
   if (input.items.length > MAX_ITEMS) {
     throw new BillError('INVALID_BILL', `At most ${MAX_ITEMS} items are allowed`);
   }
+  const itemIds = new Set();
   const items = input.items.map((item, index) => {
     if (item === null || typeof item !== 'object' || Array.isArray(item)) {
       throw new BillError('INVALID_BILL', `Item ${index + 1} must be an object`);
     }
     const id = assertId(item.id, `Item ${index + 1} id`);
+    if (itemIds.has(id)) throw new BillError('INVALID_BILL', `Duplicate item id: ${id}`);
+    itemIds.add(id);
     const name = assertText(item.name, `Item ${index + 1} name`, MAX_NAME_LENGTH);
     const priceMinor = assertSignedMinorAmount(item.priceMinor, `Item "${name}" price`);
     let quantity = 1;
