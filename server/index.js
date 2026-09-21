@@ -4,11 +4,15 @@ import express from 'express';
 import aiRoutes from './routes/extract.js';
 import billRoutes from './routes/bills.js';
 import { notFoundHandler, errorHandler, requestLogger } from './middleware/errors.js';
+import { corsMiddleware } from './middleware/cors.js';
 
 const app = express();
 
 // One short log line per request; bodies and credentials are never logged.
 app.use(requestLogger);
+
+// Strict origin validation and CORS preflight handling.
+app.use(corsMiddleware);
 
 // JSON bodies for the bills API; small cap is plenty for bill payloads.
 app.use(express.json({ limit: '1mb' }));
