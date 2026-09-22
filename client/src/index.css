@@ -1,18 +1,18 @@
 :root {
-  /* Core Color Palette */
-  --color-primary: #2563eb;
-  --color-primary-hover: #1d4ed8;
+  /* Finalized Warm Navy Color Palette */
+  --color-primary: #1e3a5f;
+  --color-primary-hover: #162d4a;
   --color-primary-subtle: #eff6ff;
   --color-primary-border: #bfdbfe;
-  --color-bg: #f8fafc;
+  --color-bg: #FAF9F6;
   --color-surface: #ffffff;
-  --color-surface-subtle: #f1f5f9;
+  --color-surface-subtle: #f8fafc;
   --color-text: #0f172a;
   --color-text-muted: #64748b;
   --color-border: #e2e8f0;
   --color-border-hover: #cbd5e1;
-  --color-success: #16a34a;
-  --color-success-bg: #f0fdf4;
+  --color-success: #0f7b5f;
+  --color-success-bg: #ecfdf5;
   --color-warning: #d97706;
   --color-warning-bg: #fffbeb;
   --color-error: #dc2626;
@@ -29,8 +29,8 @@
   --radius-full: 9999px;
 
   /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
 
   /* Backward compatibility aliases */
@@ -424,8 +424,103 @@ body {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: linear-gradient(90deg, #3b82f6, #2563eb);
+  background: linear-gradient(90deg, #1e3a5f, #2563eb);
   border-radius: 3px;
   animation: progress-indeterminate 1.8s ease-in-out infinite;
+}
+
+/* Person Selection Chips (Assign Screen) */
+.person-chip {
+  flex: 1;
+  min-height: 40px;
+  padding: 8px 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+  font-size: 0.825rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+}
+
+.person-chip:hover {
+  border-color: var(--color-border-hover);
+}
+
+.person-chip.active {
+  border: 2px solid var(--color-primary);
+  background-color: var(--color-primary-subtle);
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+/* Tag Badge */
+.tag-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+}
+
+/* Swipe to Confirm Interactive Slider */
+.swipe-track {
+  position: relative;
+  width: 100%;
+  height: 54px;
+  background-color: #e2e8f0;
+  border-radius: 27px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  user-select: none;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.swipe-track-active {
+  background-color: #ecfdf5;
+  border: 1.5px solid #10b981;
+}
+
+.swipe-thumb {
+  position: absolute;
+  left: 4px;
+  width: 46px;
+  height: 46px;
+  background-color: var(--color-success);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: bold;
+  box-shadow: 0 4px 10px rgba(15, 123, 95, 0.35);
+  cursor: grab;
+  z-index: 2;
+  touch-action: none;
+}
+
+.swipe-thumb:active {
+  cursor: grabbing;
+}
+
+.swipe-text {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+  padding-left: 36px;
+  pointer-events: none;
 }
 

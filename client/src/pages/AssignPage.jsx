@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getSessionData, updateSessionData } from '../session';
+import { getAvatarColor, getInitials } from '../avatarColors';
 
 function currencySymbol(currency) {
   if (currency === 'USD') return '$';
@@ -192,9 +193,10 @@ export default function AssignPage() {
               </div>
 
               {/* People Selection Controls */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {people.map((person) => {
                   const isSelected = assignedIds.includes(person.id);
+                  const avatar = getAvatarColor(person.id || person.name);
 
                   return (
                     <button
@@ -202,56 +204,42 @@ export default function AssignPage() {
                       type="button"
                       onClick={() => handleTogglePerson(item.id, person.id)}
                       aria-pressed={isSelected}
+                      className={`person-chip ${isSelected ? 'active' : ''}`}
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        minHeight: '44px',
-                        padding: '10px 12px',
-                        borderRadius: '8px',
-                        border: isSelected
-                          ? '1.5px solid var(--primary-color)'
-                          : '1px solid var(--border-color)',
-                        backgroundColor: isSelected ? '#eff6ff' : '#ffffff',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        transition: 'all 0.15s ease',
+                        backgroundColor: isSelected ? 'var(--color-primary-subtle)' : '#ffffff',
+                        borderColor: isSelected ? 'var(--color-primary)' : 'var(--color-border)',
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-                        <span
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: '20px',
-                            height: '20px',
-                            borderRadius: '4px',
-                            border: isSelected
-                              ? '1.5px solid var(--primary-color)'
-                              : '1px solid var(--border-color)',
-                            backgroundColor: isSelected ? 'var(--primary-color)' : '#ffffff',
-                            color: '#ffffff',
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            flexShrink: 0,
-                          }}
-                        >
-                          {isSelected ? '✓' : ''}
-                        </span>
-                        <span
-                          style={{
-                            fontWeight: isSelected ? 600 : 500,
-                            color: isSelected ? 'var(--primary-color)' : 'var(--text-main)',
-                            fontSize: '0.95rem',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {person.name}
-                        </span>
-                      </div>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '22px',
+                          height: '22px',
+                          borderRadius: '50%',
+                          backgroundColor: isSelected ? 'var(--color-primary)' : avatar.bg,
+                          color: isSelected ? '#ffffff' : avatar.color,
+                          border: `1px solid ${isSelected ? 'var(--color-primary)' : avatar.border}`,
+                          fontSize: '0.65rem',
+                          fontWeight: 700,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {isSelected ? '✓' : getInitials(person.name)}
+                      </span>
+                      <span
+                        style={{
+                          fontWeight: isSelected ? 700 : 500,
+                          color: isSelected ? 'var(--color-primary)' : 'var(--color-text)',
+                          fontSize: '0.85rem',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {person.name}
+                      </span>
                     </button>
                   );
                 })}

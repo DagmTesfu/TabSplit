@@ -3,156 +3,154 @@ import { Link } from 'react-router-dom';
 
 export default function LandingPage() {
   return (
-    <div className="page page-center" style={{ padding: '8px 0 16px' }}>
-      {/* Hero Icon */}
-      <div
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '64px',
-          height: '64px',
-          borderRadius: '16px',
-          backgroundColor: 'var(--color-primary-subtle)',
-          border: '1px solid var(--color-primary-border)',
-          fontSize: '2rem',
-          margin: '0 auto 16px',
-          boxShadow: 'var(--shadow-sm)',
-        }}
-      >
-        🧾
+    <div className="page page-center" style={{ padding: '8px 0 20px' }}>
+      {/* Brand & Headline */}
+      <div style={{ marginTop: 4, marginBottom: 16 }}>
+        <h1
+          className="title"
+          style={{
+            fontSize: '1.95rem',
+            fontWeight: 900,
+            color: 'var(--color-text)',
+            marginBottom: 8,
+            letterSpacing: '-0.035em',
+            lineHeight: 1.15,
+          }}
+        >
+          Split the bill.
+          <br />
+          <span style={{ color: 'var(--color-primary)' }}>Not the friendship.</span>
+        </h1>
+
+        <p
+          className="subtitle"
+          style={{
+            maxWidth: '320px',
+            margin: '0 auto',
+            fontSize: '0.95rem',
+            color: 'var(--color-text-muted)',
+            lineHeight: 1.45,
+          }}
+        >
+          Snap the receipt. We handle the math nobody wants to do.
+        </p>
       </div>
 
-      {/* Main Headline & Tagline */}
-      <h1
-        className="title"
+      {/* Concept C Comparison Card: What a photo can't do */}
+      <div
         style={{
-          fontSize: '1.85rem',
-          fontWeight: 800,
-          color: 'var(--color-text)',
-          marginBottom: 8,
-          letterSpacing: '-0.03em',
-        }}
-      >
-        Split the bill.
-        <br />
-        <span style={{ color: 'var(--color-primary)' }}>Not the friendship.</span>
-      </h1>
-
-      <p
-        className="subtitle"
-        style={{
+          backgroundColor: 'var(--color-surface)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-lg)',
           maxWidth: '340px',
+          width: '100%',
           margin: '0 auto 24px',
-          fontSize: '0.95rem',
-          color: 'var(--color-text-muted)',
-          lineHeight: 1.5,
+          overflow: 'hidden',
+          boxShadow: 'var(--shadow-sm)',
+          textAlign: 'left',
         }}
       >
-        Snap a receipt, tap to assign dishes to friends, and split tax & tip fairly in seconds.
-      </p>
+        {/* Card Header */}
+        <div
+          style={{
+            padding: '10px 14px',
+            backgroundColor: '#f8fafc',
+            borderBottom: '1px solid var(--color-border)',
+            fontSize: '0.8rem',
+            fontWeight: 800,
+            color: 'var(--color-primary)',
+            letterSpacing: '-0.01em',
+          }}
+        >
+          What a photo can't do:
+        </div>
+
+        {/* Card Rows with Red Crosses */}
+        <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+            <span style={{ color: '#dc2626', fontSize: '0.85rem', fontWeight: 800, lineHeight: 1.3 }}>✕</span>
+            <span style={{ fontSize: '0.82rem', color: '#475569', lineHeight: 1.35 }}>
+              Split the appetizer you shared 3 ways
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+            <span style={{ color: '#dc2626', fontSize: '0.85rem', fontWeight: 800, lineHeight: 1.3 }}>✕</span>
+            <span style={{ fontSize: '0.82rem', color: '#475569', lineHeight: 1.35 }}>
+              Calculate each person's fair share of tax & tip
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+            <span style={{ color: '#dc2626', fontSize: '0.85rem', fontWeight: 800, lineHeight: 1.3 }}>✕</span>
+            <span style={{ fontSize: '0.82rem', color: '#475569', lineHeight: 1.35 }}>
+              Give everyone a clear total they can just pay
+            </span>
+          </div>
+        </div>
+
+        {/* Card Footer: TabSplit Solution */}
+        <div
+          style={{
+            padding: '9px 14px',
+            backgroundColor: '#ecfdf5',
+            borderTop: '1px solid #d1fae5',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          <span style={{ color: '#0f7b5f', fontSize: '0.9rem', fontWeight: 800 }}>✓</span>
+          <span style={{ fontSize: '0.8rem', color: '#0f7b5f', fontWeight: 700 }}>
+            TabSplit handles all of this in 30 seconds
+          </span>
+        </div>
+      </div>
 
       {/* Primary CTA */}
-      <div style={{ marginBottom: 28 }}>
+      <div style={{ marginBottom: 10 }}>
         <Link
           to="/scan"
           className="btn-primary"
           style={{
             maxWidth: '320px',
             margin: '0 auto',
-            fontSize: '1.05rem',
+            fontSize: '1rem',
+            fontWeight: 700,
             padding: '14px 24px',
             gap: 8,
+            boxShadow: '0 4px 14px rgba(30, 58, 95, 0.18)',
           }}
         >
-          <span>📸</span>
-          <span>Scan a Receipt</span>
+          <span>Scan your receipt →</span>
         </Link>
       </div>
 
-      {/* Value Prop 3-Step Highlights */}
-      <div
+      {/* Trust Subtext */}
+      <p
         style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 10,
-          textAlign: 'left',
-          backgroundColor: 'var(--color-surface-subtle)',
-          border: '1px solid var(--color-border)',
-          borderRadius: 'var(--radius-lg)',
-          padding: '14px 16px',
-          maxWidth: '360px',
-          margin: '0 auto',
+          fontSize: '0.75rem',
+          color: 'var(--color-text-muted)',
+          textAlign: 'center',
+          marginBottom: 20,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--color-border)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '1rem',
-              flexShrink: 0,
-            }}
-          >
-            📸
-          </div>
-          <div style={{ fontSize: '0.875rem' }}>
-            <strong style={{ color: 'var(--color-text)', display: 'block' }}>1. Fast AI Receipt Scanning</strong>
-            <span style={{ color: 'var(--color-text-muted)' }}>Reads printed items, prices, tax & tip</span>
-          </div>
-        </div>
+        Free · No account · No app to download
+      </p>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--color-border)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '1rem',
-              flexShrink: 0,
-            }}
-          >
-            👥
-          </div>
-          <div style={{ fontSize: '0.875rem' }}>
-            <strong style={{ color: 'var(--color-text)', display: 'block' }}>2. Flexible Item Assignment</strong>
-            <span style={{ color: 'var(--color-text-muted)' }}>Solo items & multi-person shared plates</span>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--color-border)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '1rem',
-              flexShrink: 0,
-            }}
-          >
-            🔗
-          </div>
-          <div style={{ fontSize: '0.875rem' }}>
-            <strong style={{ color: 'var(--color-text)', display: 'block' }}>3. Instant Shareable Link</strong>
-            <span style={{ color: 'var(--color-text-muted)' }}>Friends view their individual breakdown</span>
-          </div>
-        </div>
+      {/* Bottom Proof Line */}
+      <div
+        style={{
+          paddingTop: 14,
+          borderTop: '1px solid var(--color-border)',
+          fontSize: '0.75rem',
+          color: 'var(--color-text-muted)',
+          maxWidth: '320px',
+          margin: '0 auto',
+          lineHeight: 1.4,
+        }}
+      >
+        Handles solo plates, shared apps, tax & tip fairly.
       </div>
     </div>
   );

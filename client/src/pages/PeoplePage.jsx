@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getSessionData, updateSessionData } from '../session';
+import { getAvatarColor, getInitials } from '../avatarColors';
 
 function currencySymbol(currency) {
   if (currency === 'USD') return '$';
@@ -359,23 +360,29 @@ export default function PeoplePage() {
                   ) : (
                     <>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-                        <span
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: '28px',
-                            height: '28px',
-                            borderRadius: '50%',
-                            backgroundColor: '#eff6ff',
-                            color: 'var(--primary-color)',
-                            fontSize: '0.8rem',
-                            fontWeight: 700,
-                            flexShrink: 0,
-                          }}
-                        >
-                          {index + 1}
-                        </span>
+                        {(() => {
+                          const avatar = getAvatarColor(person.id || person.name);
+                          return (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '50%',
+                                backgroundColor: avatar.bg,
+                                color: avatar.color,
+                                border: `1px solid ${avatar.border}`,
+                                fontSize: '0.85rem',
+                                fontWeight: 700,
+                                flexShrink: 0,
+                              }}
+                            >
+                              {getInitials(person.name)}
+                            </span>
+                          );
+                        })()}
                         <span
                           style={{
                             fontWeight: 600,

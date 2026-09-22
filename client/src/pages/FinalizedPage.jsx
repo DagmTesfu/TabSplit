@@ -60,140 +60,206 @@ export default function FinalizedPage() {
     }
   };
 
-  return (
-    <div className="page">
-      <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <div style={{ fontSize: '3rem', marginBottom: 12 }}>🎉</div>
-        <h1 className="title" style={{ marginBottom: 6 }}>
-          Bill Finalized
-        </h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', margin: 0 }}>
-          {bill?.restaurantName ? `${bill.restaurantName} · ` : ''}
-          Your split is ready to share!
-        </p>
-      </div>
+  const currency = bill?.currency || 'USD';
+  const totals = bill?.totals || {};
+  const peopleTotals = totals.people || bill?.people || [];
+  const billTotalMinor = totals.billTotalMinor ?? bill?.totalMinor ?? 0;
 
-      {/* Share Details Card */}
+  return (
+    <div className="page" style={{ padding: '8px 0 20px' }}>
+      {/* Confirmation Receipt Cutout Card */}
       <div
         style={{
           backgroundColor: '#ffffff',
-          border: '1px solid var(--border-color)',
-          borderRadius: '12px',
-          padding: '18px 16px',
-          marginBottom: 20,
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+          border: '1.5px solid var(--color-border)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '20px 16px',
+          textAlign: 'center',
+          marginBottom: 16,
+          boxShadow: 'var(--shadow-sm)',
         }}
       >
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>
-            Share Code
-          </div>
-          <div
-            style={{
-              fontSize: '1.4rem',
-              fontWeight: 800,
-              letterSpacing: '0.1em',
-              color: 'var(--primary-color)',
-              fontFamily: 'monospace',
-            }}
-          >
-            {shareCode}
-          </div>
+        {/* Emerald Checkmark Badge */}
+        <div
+          style={{
+            width: '48px',
+            height: '48px',
+            borderRadius: '50%',
+            backgroundColor: 'var(--color-success-bg)',
+            border: '2px solid var(--color-success)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '1.3rem',
+            color: 'var(--color-success)',
+            marginBottom: 10,
+            boxShadow: '0 4px 10px rgba(15, 123, 95, 0.15)',
+          }}
+        >
+          ✓
         </div>
 
-        {shareUrl && (
-          <div>
-            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>
-              Share Link
+        <h1 className="title" style={{ fontSize: '1.45rem', marginBottom: 2 }}>
+          Split Confirmed!
+        </h1>
+        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: 14 }}>
+          {bill?.restaurantName || 'Receipt Split'}
+        </p>
+
+        {billTotalMinor > 0 && (
+          <div
+            style={{
+              borderTop: '1px dashed var(--color-border)',
+              borderBottom: '1px dashed var(--color-border)',
+              padding: '10px 0',
+              marginBottom: 14,
+            }}
+          >
+            <div
+              style={{
+                fontSize: '0.65rem',
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                color: 'var(--color-text-muted)',
+                marginBottom: 2,
+              }}
+            >
+              TOTAL SETTLED
             </div>
             <div
               style={{
-                display: 'flex',
-                gap: 8,
-                alignItems: 'center',
+                fontSize: '1.85rem',
+                fontWeight: 900,
+                color: 'var(--color-text)',
+                letterSpacing: '-0.02em',
               }}
             >
-              <input
-                type="text"
-                readOnly
-                value={shareUrl}
+              {currency === 'ETB' ? 'ETB ' : '$'}
+              {(billTotalMinor / 100).toFixed(2)}
+            </div>
+          </div>
+        )}
+
+        {/* Participant Breakdown Badges */}
+        {peopleTotals.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 4 }}>
+            {peopleTotals.map((person) => (
+              <div
+                key={person.id}
                 style={{
-                  flex: 1,
-                  minWidth: 0,
-                  minHeight: '42px',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: '#f8fafc',
-                  fontSize: '0.9rem',
-                  color: 'var(--text-main)',
-                  outline: 'none',
-                }}
-              />
-              <button
-                type="button"
-                onClick={handleCopy}
-                style={{
-                  padding: '10px 16px',
-                  minHeight: '42px',
-                  borderRadius: '6px',
-                  backgroundColor: copied ? '#16a34a' : 'var(--primary-color)',
-                  color: '#ffffff',
-                  border: 'none',
-                  fontWeight: 600,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '7px 10px',
+                  backgroundColor: 'var(--color-surface-subtle)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-sm)',
                   fontSize: '0.85rem',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
-                  transition: 'background-color 0.15s ease',
-                  touchAction: 'manipulation',
                 }}
               >
-                {copied ? 'Copied!' : 'Copy Link'}
-              </button>
-            </div>
+                <span style={{ fontWeight: 700, color: 'var(--color-primary)' }}>{person.name}</span>
+                <span style={{ fontWeight: 800, color: 'var(--color-text)' }}>
+                  {currency === 'ETB' ? 'ETB ' : '$'}
+                  {((person.totalMinor || 0) / 100).toFixed(2)}
+                </span>
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Shared Bill Info Card */}
+      {/* Share Link Card */}
       <div
         style={{
-          backgroundColor: '#eff6ff',
-          border: '1px solid #bfdbfe',
-          borderRadius: '12px',
-          padding: '16px',
-          marginBottom: 24,
-          color: '#1e40af',
-          fontSize: '0.9rem',
-          lineHeight: 1.5,
+          backgroundColor: '#ffffff',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-md)',
+          padding: '14px 16px',
+          marginBottom: 16,
+          boxShadow: 'var(--shadow-sm)',
         }}
       >
-        <div style={{ fontWeight: 600, marginBottom: 4 }}>
-          Shared Bill
+        <div
+          style={{
+            fontSize: '0.7rem',
+            fontWeight: 800,
+            color: 'var(--color-text-muted)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            marginBottom: 6,
+          }}
+        >
+          SHARE WITH FRIENDS
         </div>
-        <div>
-          Your friends can open this link to see what they owe.
-        </div>
+
+        {shareUrl && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="text"
+              readOnly
+              value={shareUrl}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                minHeight: '40px',
+                padding: '8px 12px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--color-border)',
+                backgroundColor: 'var(--color-surface-subtle)',
+                fontSize: '0.85rem',
+                color: 'var(--color-text)',
+                outline: 'none',
+              }}
+            />
+            <button
+              type="button"
+              onClick={handleCopy}
+              style={{
+                padding: '10px 16px',
+                minHeight: '40px',
+                borderRadius: 'var(--radius-sm)',
+                backgroundColor: copied ? 'var(--color-success)' : 'var(--color-primary)',
+                color: '#ffffff',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                transition: 'background-color 0.15s ease',
+                touchAction: 'manipulation',
+              }}
+            >
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
+        )}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+      {/* Action Buttons */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
         {shareCode && (
           <Link
             to={`/b/${shareCode}`}
-            className="btn-primary"
-            style={{ textDecoration: 'none', textAlign: 'center', width: '100%' }}
+            className="btn-secondary"
+            style={{ textDecoration: 'none', textAlign: 'center', width: '100%', fontWeight: 700 }}
           >
-            View Shared Bill
+            View Public Shared Bill →
           </Link>
         )}
 
         <Link
           to="/"
-          className="btn-secondary"
-          style={{ textDecoration: 'none', textAlign: 'center' }}
+          style={{
+            color: 'var(--color-text-muted)',
+            fontSize: '0.85rem',
+            fontWeight: 600,
+            textDecoration: 'none',
+            padding: '8px',
+          }}
         >
-          Back to Home
+          Done · Start New Split
         </Link>
       </div>
     </div>

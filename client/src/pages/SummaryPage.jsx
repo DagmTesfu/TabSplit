@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { calculateAssignments } from '../calculateAssignments';
 import { finalizeBill, buildFinalizePayload } from '../api';
 import { getSessionData, clearSessionData } from '../session';
+import SwipeToConfirm from '../components/SwipeToConfirm';
 
 function currencySymbol(currency) {
   if (currency === 'USD') return '$';
@@ -432,18 +433,11 @@ export default function SummaryPage() {
       {/* Action Buttons */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
         {fullyAssigned && (
-          <button
-            type="button"
-            onClick={handleFinalize}
+          <SwipeToConfirm
+            onConfirm={handleFinalize}
             disabled={isFinalizing}
-            className="btn-primary"
-            style={{
-              opacity: isFinalizing ? 0.75 : 1,
-              cursor: isFinalizing ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {isFinalizing ? 'Finalizing...' : 'Finalize Bill'}
-          </button>
+            label={isFinalizing ? 'Finalizing...' : 'Swipe to Finalize Bill ➔'}
+          />
         )}
 
         <button

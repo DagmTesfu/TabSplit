@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getBill } from '../api';
+import { getAvatarColor, getInitials } from '../avatarColors';
 
 function currencySymbol(currency) {
   if (currency === 'USD') return '$';
@@ -24,6 +25,7 @@ export default function BillPage() {
   const [billData, setBillData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [expandedPersonId, setExpandedPersonId] = useState(null);
 
   const fetchBill = useCallback(async () => {
     if (!shareCode) return;
@@ -167,63 +169,193 @@ export default function BillPage() {
         </span>
       </div>
 
-      {/* People Totals Card */}
+      {/* People Totals List (Interactive Tap-to-Expand Breakdown) */}
       <div
         style={{
           backgroundColor: '#ffffff',
-          border: '1px solid var(--border-color)',
-          borderRadius: '12px',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-lg)',
           padding: '16px',
           marginBottom: 20,
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+          boxShadow: 'var(--shadow-sm)',
         }}
       >
-        <h2
-          style={{
-            fontSize: '0.95rem',
-            fontWeight: 700,
-            color: 'var(--text-main)',
-            marginBottom: 14,
-            textTransform: 'uppercase',
-            letterSpacing: '0.04em',
-          }}
-        >
-          Participant Totals
-        </h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h2
+            style={{
+              fontSize: '0.85rem',
+              fontWeight: 800,
+              color: 'var(--color-text-muted)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+            }}
+          >
+            People & Totals
+          </h2>
+          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Tap name to view breakdown</span>
+        </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {peopleTotals.map((person) => (
-            <div
-              key={person.id}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'baseline',
-                padding: '10px 12px',
-                borderRadius: '8px',
-                backgroundColor: '#f8fafc',
-                gap: 8,
-              }}
-            >
-              <span
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {peopleTotals.map((person) => {
+            const isExpanded = expandedPersonId === person.id;
+            const avatar = getAvatarColor(person.id || person.name);
+
+            // Filter items assigned to this specific person from the server bill
+            const personItems = items.filter((item) => {
+              const assigned = Array.isArray(item.assignedTo) ? item.assignedTo : [];
+              return assigned.includes(person.id);
+            });
+
+            return (
+              <div
+                key={person.id}
                 style={{
-                  fontWeight: 600,
-                  fontSize: '1rem',
-                  color: 'var(--text-main)',
+                  border: isExpanded ? '1.5px solid var(--color-primary)' : '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: isExpanded ? 'var(--color-surface-subtle)' : '#ffffff',
                   overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  minWidth: 0,
-                  flex: 1,
+                  transition: 'all 0.15s ease',
                 }}
               >
-                {person.name}
-              </span>
-              <span style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)', flexShrink: 0 }}>
-                {formatAmount(person.totalMinor, currency)}
-              </span>
-            </div>
-          ))}
+                {/* Person Header (Tap to toggle) */}
+                <button
+                  type="button"
+                  onClick={() => setExpandedPersonId(isExpanded ? null : person.id)}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    width: '100%',
+                    padding: '12px 14px',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '50%',
+                        backgroundColor: avatar.bg,
+                        color: avatar.color,
+                        border: `1px solid ${avatar.border}`,
+                        fontSize: '0.85rem',
+                        fontWeight: 700,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {getInitials(person.name)}
+                    </span>
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        fontSize: '1rem',
+                        color: 'var(--color-text)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {person.name}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--color-primary)' }}>
+                      {formatAmount(person.totalMinor, currency)}
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                      {isExpanded ? '▲' : '▼'}
+                    </span>
+                  </div>
+                </button>
+
+                {/* Expanded Breakdown Details */}
+                {isExpanded && (
+                  <div
+                    style={{
+                      padding: '12px 14px',
+                      borderTop: '1px solid var(--color-border)',
+                      backgroundColor: '#ffffff',
+                      fontSize: '0.85rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-text-muted)' }}>
+                      Assigned Dishes
+                    </div>
+
+                    {personItems.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {personItems.map((item, idx) => {
+                          const splitCount = (item.assignedTo || []).length;
+                          return (
+                            <div key={item.id || idx} style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-text)' }}>
+                              <span>
+                                {item.name}
+                                {splitCount > 1 && (
+                                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: 6 }}>
+                                    (1/{splitCount} share)
+                                  </span>
+                                )}
+                              </span>
+                              <span style={{ fontWeight: 600 }}>
+                                {splitCount > 1
+                                  ? formatAmount(Math.round((item.priceMinor || 0) / splitCount), currency)
+                                  : formatAmount(item.priceMinor || 0, currency)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>No solo dishes assigned</div>
+                    )}
+
+                    {/* Server-calculated Adjustment (Tax, Tip & Charges) */}
+                    {person.adjustmentMinor !== undefined && person.adjustmentMinor > 0 && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          color: 'var(--color-text-muted)',
+                          paddingTop: 6,
+                          borderTop: '1px dashed var(--color-border)',
+                        }}
+                      >
+                        <span>Share of tax, tip & charges</span>
+                        <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>
+                          {formatAmount(person.adjustmentMinor, currency)}
+                        </span>
+                      </div>
+                    )}
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        fontWeight: 800,
+                        paddingTop: 6,
+                        borderTop: '1px solid var(--color-border)',
+                        fontSize: '0.95rem',
+                      }}
+                    >
+                      <span>{person.name}'s Total</span>
+                      <span style={{ color: 'var(--color-primary)' }}>{formatAmount(person.totalMinor, currency)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
