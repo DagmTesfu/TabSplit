@@ -11,7 +11,12 @@ export default function SwipeToConfirm({ onConfirm, disabled = false, label = 'S
   const isDraggingRef = useRef(false);
   const startXRef = useRef(0);
 
-  const maxDrag = 240; // Max drag distance in pixels
+  const getMaxDrag = () => {
+    if (trackRef.current) {
+      return Math.max(120, trackRef.current.clientWidth - 54);
+    }
+    return 240;
+  };
 
   const handleStart = (clientX) => {
     if (disabled || isSwiped) return;
@@ -21,6 +26,7 @@ export default function SwipeToConfirm({ onConfirm, disabled = false, label = 'S
 
   const handleMove = (clientX) => {
     if (!isDraggingRef.current || isSwiped) return;
+    const maxDrag = getMaxDrag();
     const diff = clientX - startXRef.current;
     if (diff <= 0) {
       setDragProgress(0);
@@ -34,8 +40,9 @@ export default function SwipeToConfirm({ onConfirm, disabled = false, label = 'S
   const handleEnd = () => {
     if (!isDraggingRef.current || isSwiped) return;
     isDraggingRef.current = false;
+    const maxDrag = getMaxDrag();
 
-    if (dragProgress >= maxDrag * 0.85) {
+    if (dragProgress >= maxDrag * 0.8) {
       setDragProgress(maxDrag);
       setIsSwiped(true);
       if (onConfirm) onConfirm();
@@ -76,42 +83,49 @@ export default function SwipeToConfirm({ onConfirm, disabled = false, label = 'S
           cursor: disabled ? 'not-allowed' : 'pointer',
         }}
       >
-        <div
-          className="swipe-thumb"
-          style={{
-            transform: `translateX(${dragProgress}px)`,
-            backgroundColor: isSwiped ? '#0f7b5f' : 'var(--color-success)',
-          }}
-          onMouseDown={(e) => handleStart(e.clientX)}
-          onTouchStart={(e) => {
-            if (e.touches.length > 0) handleStart(e.touches[0].clientX);
-          }}
-          role="slider"
-          aria-valuenow={Math.round((dragProgress / maxDrag) * 100)}
-          tabIndex={disabled ? -1 : 0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              if (!disabled && !isSwiped) {
-                setIsSwiped(true);
-                setDragProgress(maxDrag);
-                if (onConfirm) onConfirm();
-              }
-            }
-          }}
-        >
-          {isSwiped ? '✓' : '➔'}
-        </div>
+        {(() => {
+          const currentMaxDrag = getMaxDrag();
+          return (
+            <>
+              <div
+                className="swipe-thumb"
+                style={{
+                  transform: `translateX(${dragProgress}px)`,
+                  backgroundColor: isSwiped ? '#0f7b5f' : 'var(--color-success)',
+                }}
+                onMouseDown={(e) => handleStart(e.clientX)}
+                onTouchStart={(e) => {
+                  if (e.touches.length > 0) handleStart(e.touches[0].clientX);
+                }}
+                role="slider"
+                aria-valuenow={Math.round((dragProgress / currentMaxDrag) * 100)}
+                tabIndex={disabled ? -1 : 0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    if (!disabled && !isSwiped) {
+                      setIsSwiped(true);
+                      setDragProgress(currentMaxDrag);
+                      if (onConfirm) onConfirm();
+                    }
+                  }
+                }}
+              >
+                {isSwiped ? '✓' : '➔'}
+              </div>
 
-        <div
-          className="swipe-text"
-          style={{
-            opacity: Math.max(0, 1 - (dragProgress / maxDrag) * 1.5),
-            color: isSwiped ? '#0f7b5f' : 'var(--color-text-muted)',
-          }}
-        >
-          {isSwiped ? 'Finalized!' : label}
-        </div>
+              <div
+                className="swipe-text"
+                style={{
+                  opacity: Math.max(0, 1 - (dragProgress / currentMaxDrag) * 1.5),
+                  color: isSwiped ? '#0f7b5f' : 'var(--color-text-muted)',
+                }}
+              >
+                {isSwiped ? 'Finalized!' : label}
+              </div>
+            </>
+          );
+        })()}
       </div>
       <div style={{ textAlign: 'center', marginTop: 6, fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
         Drag slider to lock & generate link

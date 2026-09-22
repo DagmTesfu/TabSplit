@@ -1,6 +1,23 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
+function currencySymbol(currency) {
+  if (currency === 'USD') return '$';
+  if (currency === 'ETB') return 'ETB ';
+  return `${currency} `;
+}
+
+function formatAmount(priceMinor, currency) {
+  const minorUnits = 2;
+  const isNegative = priceMinor < 0;
+  const absMinor = Math.abs(priceMinor);
+  const major = Math.floor(absMinor / 10 ** minorUnits);
+  const minor = absMinor % 10 ** minorUnits;
+  const formatted = `${major}.${String(minor).padStart(minorUnits, '0')}`;
+  const sym = currencySymbol(currency);
+  return isNegative ? `-${sym}${formatted}` : `${sym}${formatted}`;
+}
+
 export default function FinalizedPage() {
   const location = useLocation();
   const shareCode = location.state?.shareCode;
@@ -135,8 +152,7 @@ export default function FinalizedPage() {
                 letterSpacing: '-0.02em',
               }}
             >
-              {currency === 'ETB' ? 'ETB ' : '$'}
-              {(billTotalMinor / 100).toFixed(2)}
+              {formatAmount(billTotalMinor, currency)}
             </div>
           </div>
         )}
@@ -160,8 +176,7 @@ export default function FinalizedPage() {
               >
                 <span style={{ fontWeight: 700, color: 'var(--color-primary)' }}>{person.name}</span>
                 <span style={{ fontWeight: 800, color: 'var(--color-text)' }}>
-                  {currency === 'ETB' ? 'ETB ' : '$'}
-                  {((person.totalMinor || 0) / 100).toFixed(2)}
+                  {formatAmount(person.totalMinor ?? 0, currency)}
                 </span>
               </div>
             ))}

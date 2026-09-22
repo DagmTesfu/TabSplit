@@ -111,18 +111,18 @@ export default function AssignPage() {
           const count = assignedIds.length;
 
           let statusLabel = 'Unassigned';
-          let statusColor = 'var(--text-muted)';
-          let statusBg = '#f1f5f9';
+          let statusColor = 'var(--color-text-muted)';
+          let statusBg = 'var(--color-surface-subtle)';
 
           if (count === 1) {
             const person = people.find((p) => p.id === assignedIds[0]);
             statusLabel = person ? `Assigned to ${person.name}` : 'Assigned to 1 person';
-            statusColor = '#1d4ed8';
-            statusBg = '#eff6ff';
+            statusColor = 'var(--color-primary)';
+            statusBg = 'var(--color-primary-subtle)';
           } else if (count > 1) {
             statusLabel = `Split between ${count} people`;
-            statusColor = '#16a34a';
-            statusBg = '#f0fdf4';
+            statusColor = 'var(--color-success)';
+            statusBg = 'var(--color-success-bg)';
           }
 
           return (
@@ -167,7 +167,7 @@ export default function AssignPage() {
                   style={{
                     fontSize: '1rem',
                     fontWeight: 700,
-                    color: item.priceMinor < 0 ? '#16a34a' : 'var(--text-main)',
+                    color: item.priceMinor < 0 ? 'var(--color-success)' : 'var(--text-main)',
                     flexShrink: 0,
                   }}
                 >

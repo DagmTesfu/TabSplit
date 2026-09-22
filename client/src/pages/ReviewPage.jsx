@@ -355,7 +355,7 @@ export default function ReviewPage() {
                   textAlign: 'right',
                   fontWeight: 600,
                   flexShrink: 0,
-                  color: isNegative ? '#16a34a' : 'inherit',
+                  color: isNegative ? 'var(--color-success)' : 'inherit',
                 }}
               />
 
@@ -401,11 +401,11 @@ export default function ReviewPage() {
           gap: 6,
           padding: '10px 14px',
           minHeight: '44px',
-          backgroundColor: '#eff6ff',
-          color: 'var(--primary-color)',
+          backgroundColor: 'var(--color-primary-subtle)',
+          color: 'var(--color-primary)',
           fontSize: '0.95rem',
           fontWeight: 600,
-          border: '1px dashed #bfdbfe',
+          border: '1px dashed var(--color-primary-border)',
           borderRadius: '8px',
           cursor: 'pointer',
           marginBottom: 20,
@@ -681,6 +681,10 @@ export default function ReviewPage() {
           aria-modal="true"
           aria-labelledby="amount-help-title"
           onClick={() => setShowAmountHelp(false)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setShowAmountHelp(false);
+          }}
+          tabIndex={-1}
           style={{
             position: 'fixed',
             top: 0,
