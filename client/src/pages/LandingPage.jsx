@@ -178,7 +178,7 @@ export default function LandingPage() {
           borderRadius: 'var(--radius-lg)',
           maxWidth: '340px',
           width: '100%',
-          margin: '0 auto 24px',
+          margin: '0 auto 20px',
           padding: '16px 14px',
           boxShadow: 'var(--shadow-sm)',
           textAlign: 'left',
@@ -328,85 +328,135 @@ export default function LandingPage() {
           fontSize: '0.75rem',
           color: 'var(--color-text-muted)',
           textAlign: 'center',
-          marginBottom: 12,
+          marginBottom: 16,
         }}
       >
         Free · No account · No app to download
       </p>
 
-      {/* PWA Install Secondary Action */}
-      {!isInstalled && (
-        <div style={{ maxWidth: '320px', margin: '0 auto 16px', width: '100%' }}>
-          <button
-            type="button"
-            onClick={handleInstallClick}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--color-primary)',
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              padding: '6px 10px',
-              borderRadius: 'var(--radius-sm)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              touchAction: 'manipulation',
-              textDecoration: 'underline',
-              textUnderlineOffset: '3px',
-            }}
-          >
-            <span>📱</span>
-            <span>Install TabSplit on phone</span>
-          </button>
-
-          {/* Platform-appropriate Fallback Installation Guidance */}
-          {showInstallGuide && (
+      {/* Installation Section */}
+      <div
+        style={{
+          maxWidth: '340px',
+          width: '100%',
+          margin: '0 auto 20px',
+          padding: isInstalled ? '12px 14px' : '16px 14px',
+          backgroundColor: isInstalled ? 'var(--color-success-bg)' : 'var(--color-surface)',
+          border: isInstalled ? '1px solid #a7f3d0' : '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-lg)',
+          boxShadow: 'var(--shadow-sm)',
+          textAlign: isInstalled ? 'center' : 'left',
+        }}
+      >
+        {isInstalled ? (
+          <div>
             <div
               style={{
-                marginTop: 8,
-                padding: '10px 12px',
-                backgroundColor: 'var(--color-surface-subtle)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-md)',
-                fontSize: '0.78rem',
-                lineHeight: 1.45,
-                color: 'var(--color-text)',
-                textAlign: 'left',
-                boxShadow: 'var(--shadow-sm)',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                color: 'var(--color-success)',
+                marginBottom: 2,
               }}
             >
-              <div style={{ fontWeight: 700, marginBottom: 4, color: 'var(--color-primary)' }}>
-                {platform === 'ios'
-                  ? 'How to install on iPhone & iPad:'
-                  : platform === 'android'
-                  ? 'How to install on Android:'
-                  : 'How to install:'}
-              </div>
-
-              {platform === 'ios' ? (
-                <ol style={{ margin: 0, paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <li>Tap the <strong>Share</strong> button (box with upward arrow) in Safari.</li>
-                  <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
-                  <li>Tap <strong>Add</strong> in the top-right corner.</li>
-                </ol>
-              ) : platform === 'android' ? (
-                <ol style={{ margin: 0, paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <li>Tap the <strong>three dots (⋮)</strong> in Chrome's top-right menu.</li>
-                  <li>Select <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li>
-                  <li>Confirm the prompt to install TabSplit.</li>
-                </ol>
-              ) : (
-                <ol style={{ margin: 0, paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <li>Click the <strong>install icon (⊕)</strong> in your browser's address bar.</li>
-                  <li>Or open your browser menu and select <strong>Install TabSplit</strong>.</li>
-                </ol>
-              )}
+              ✓ TabSplit is installed
             </div>
-          )}
-        </div>
-      )}
+            <div
+              style={{
+                fontSize: '0.78rem',
+                color: 'var(--color-text-muted)',
+              }}
+            >
+              Ready whenever you need to split a bill.
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div
+              style={{
+                fontSize: '0.88rem',
+                fontWeight: 800,
+                color: 'var(--color-text)',
+                marginBottom: 4,
+                letterSpacing: '-0.01em',
+              }}
+            >
+              Use TabSplit anywhere
+            </div>
+            <p
+              style={{
+                fontSize: '0.8rem',
+                color: 'var(--color-text-muted)',
+                lineHeight: 1.45,
+                marginBottom: 12,
+              }}
+            >
+              No app to download. Use TabSplit right in your browser, or install it for quicker access.
+            </p>
+
+            <button
+              type="button"
+              onClick={handleInstallClick}
+              className="btn-secondary"
+              style={{
+                width: '100%',
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                minHeight: '38px',
+                padding: '8px 14px',
+                borderColor: 'var(--color-primary-border)',
+                color: 'var(--color-primary)',
+                backgroundColor: 'var(--color-primary-subtle)',
+              }}
+            >
+              Install TabSplit
+            </button>
+
+            {/* Platform-appropriate Fallback Installation Guidance */}
+            {showInstallGuide && (
+              <div
+                style={{
+                  marginTop: 10,
+                  padding: '10px 12px',
+                  backgroundColor: 'var(--color-surface-subtle)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: '0.78rem',
+                  lineHeight: 1.45,
+                  color: 'var(--color-text)',
+                  textAlign: 'left',
+                }}
+              >
+                <div style={{ fontWeight: 700, marginBottom: 4, color: 'var(--color-primary)' }}>
+                  {platform === 'ios'
+                    ? 'How to install on iPhone & iPad:'
+                    : platform === 'android'
+                    ? 'How to install on Android:'
+                    : 'How to install:'}
+                </div>
+
+                {platform === 'ios' ? (
+                  <ol style={{ margin: 0, paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <li>Tap the <strong>Share</strong> button (box with upward arrow) in Safari.</li>
+                    <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+                    <li>Tap <strong>Add</strong> in the top-right corner.</li>
+                  </ol>
+                ) : platform === 'android' ? (
+                  <ol style={{ margin: 0, paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <li>Tap the <strong>three dots (⋮)</strong> in Chrome's top-right menu.</li>
+                    <li>Select <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li>
+                    <li>Confirm the prompt to install TabSplit.</li>
+                  </ol>
+                ) : (
+                  <ol style={{ margin: 0, paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <li>Click the <strong>install icon (⊕)</strong> in your browser's address bar.</li>
+                    <li>Or open your browser menu and select <strong>Install TabSplit</strong>.</li>
+                  </ol>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Bottom Proof Line */}
       <div
