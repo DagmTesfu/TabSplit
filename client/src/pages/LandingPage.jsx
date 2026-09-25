@@ -331,7 +331,7 @@ export default function LandingPage() {
           marginBottom: 16,
         }}
       >
-        Free · No account · No app to download
+        {isInstalled ? 'Free · No account needed' : 'Free · No account · No app to download'}
       </p>
 
       {/* Installation Section */}
