@@ -58,31 +58,6 @@ function toShareUrl(shareCode) {
 
 router.post('/bills', async (req, res) => {
   try {
-    // Temporary SAFE diagnostic logging (non-sensitive metadata only)
-    const safeMetadata = {
-      method: req.method,
-      pathname: req.originalUrl || req.path,
-      contentType: req.headers['content-type'],
-      userAgent: req.headers['user-agent'] ? req.headers['user-agent'].slice(0, 100) : undefined,
-      bodyTopLevelKeys: req.body && typeof req.body === 'object' ? Object.keys(req.body) : [],
-      restaurantName: typeof req.body?.restaurantName === 'string' ? req.body.restaurantName.slice(0, 50) : null,
-      currency: req.body?.currency,
-      itemCount: Array.isArray(req.body?.items) ? req.body.items.length : 0,
-      peopleCount: Array.isArray(req.body?.people) ? req.body.people.length : 0,
-      assignmentCount: Array.isArray(req.body?.items)
-        ? req.body.items.reduce((sum, item) => sum + (Array.isArray(item?.assignedTo) ? item.assignedTo.length : 0), 0)
-        : 0,
-      itemIds: Array.isArray(req.body?.items) ? req.body.items.map((it) => it?.id) : [],
-      personIds: Array.isArray(req.body?.people) ? req.body.people.map((p) => p?.id) : [],
-      numericAmounts: {
-        taxMinor: req.body?.taxMinor,
-        tipMinor: req.body?.tipMinor,
-        printedTotalMinor: req.body?.printedTotalMinor,
-        additionalChargesCount: Array.isArray(req.body?.additionalCharges) ? req.body.additionalCharges.length : 0,
-      },
-    };
-    console.log('[DIAGNOSTIC] POST /api/bills metadata:', JSON.stringify(safeMetadata));
-
     const canonicalBill = finalizeBill(req.body);
     const payload = {
       share_code: null, // set below after generation; kept explicit for clarity
@@ -103,34 +78,11 @@ router.post('/bills', async (req, res) => {
       payload.share_code = generateShareCode();
       const { data, error } = await db().insertBill(payload); // eslint-disable-line no-await-in-loop
       if (!error) { row = data; break; }
-      if (error.code !== '23505') {
-        console.error('[DIAGNOSTIC] Supabase insert error:', {
-          code: error.code || null,
-          message: typeof error.message === 'string' ? error.message : String(error),
-          details: error.details || null,
-          hint: error.hint || null,
-        });
-        throw toDbError(error); // 23505 = unique violation
-      }
+      if (error.code !== '23505') throw toDbError(error); // 23505 = unique violation
     }
-    if (!row) {
-      console.error('[DIAGNOSTIC] Failed to allocate share code after 3 attempts');
-      throw new BillError('DB_UNAVAILABLE', 'Could not allocate a share code. Please try again.');
-    }
+    if (!row) throw new BillError('DB_UNAVAILABLE', 'Could not allocate a share code. Please try again.');
     res.status(201).json({ shareCode: row.share_code, shareUrl: toShareUrl(row.share_code), bill: canonicalBill });
   } catch (error) {
-    if (error.code === 'DB_NOT_CONFIGURED' || error.code === 'DB_UNAVAILABLE') {
-      console.error('[DIAGNOSTIC] Finalize failed with DB error:', {
-        code: error.code,
-        message: error.message,
-        cause: error.cause ? {
-          code: error.cause.code || null,
-          message: typeof error.cause.message === 'string' ? error.cause.message : String(error.cause),
-          details: error.cause.details || null,
-          hint: error.cause.hint || null,
-        } : undefined,
-      });
-    }
     sendError(res, error);
   }
 });

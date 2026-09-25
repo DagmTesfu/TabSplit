@@ -309,29 +309,41 @@ If any purchased line cannot be read or represented in this format, return an em
 If this is not a receipt, return an empty items array. Do not add extra fields.`;
 }
 
+export const DEFAULT_VISION_MODEL = 'google/gemma-4-26b-a4b-it:free';
 export const CANDIDATE_VISION_MODELS = [
-  'inclusionai/ling-3.0-flash-vl:free',
-  'nex-agi/nex-n2.5-pro:free',
-  'openrouter/free',
+  'google/gemma-4-26b-a4b-it:free',
 ];
+
+// Configurable only in hermetic tests to avoid slowing down test runs
+let retryDelayOverride = null;
+export function setRetryDelayForTesting(ms) {
+  retryDelayOverride = ms;
+}
+function getRetryDelay() {
+  return retryDelayOverride !== null ? retryDelayOverride : 1000;
+}
 
 // Native fetch avoids an SDK dependency. Provider bodies/errors are never sent
 // back to callers, since they can contain request details or sensitive data.
-async function callOpenRouter(imageBuffer, imageType, prompt, modelOverride) {
+async function callOpenRouter(imageBuffer, imageType, prompt, modelOverride, attempt = 1) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey?.trim()) {
     throw new AiError('NOT_CONFIGURED', 'Receipt extraction is not configured (missing OPENROUTER_API_KEY)');
   }
-  const model = modelOverride || process.env.OPENROUTER_MODEL || 'openrouter/free';
-  const models = (!modelOverride && !process.env.OPENROUTER_MODEL)
-    ? CANDIDATE_VISION_MODELS
-    : undefined;
+  const model = modelOverride || process.env.OPENROUTER_MODEL || DEFAULT_VISION_MODEL;
+
+  // Safe observability logging: model, attempt and image metadata only (no keys, no base64, no user content)
+  console.log('[AI] Vision extraction request:', JSON.stringify({
+    attempt,
+    model,
+    mimeType: imageType,
+    byteSize: imageBuffer.length,
+  }));
 
   let reply;
   try {
     const payload = {
       model,
-      ...(models ? { models } : {}),
       store: false,
       messages: [
         { role: 'system', content: prompt },
@@ -347,7 +359,7 @@ async function callOpenRouter(imageBuffer, imageType, prompt, modelOverride) {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(45000),
     });
     if (!response.ok) {
       await response.body?.cancel();
@@ -389,14 +401,12 @@ export async function extractReceipt(imageBuffer, imageType, currency) {
     : (imageType === 'image/x-png' ? 'image/png' : imageType);
   if (detected !== canonicalType) throw new AiError('INVALID_IMAGE', 'Image contents do not match the declared type');
   const prompt = extractionPrompt(code);
+  const targetModel = process.env.OPENROUTER_MODEL || DEFAULT_VISION_MODEL;
 
   let lastError;
   for (let attempt = 1; attempt <= MAX_EXTRACTION_ATTEMPTS; attempt++) {
     try {
-      const model = attempt === 1
-        ? (process.env.OPENROUTER_MODEL || undefined)
-        : (CANDIDATE_VISION_MODELS[attempt - 1] || 'openrouter/free');
-      const raw = await callOpenRouter(imageBuffer, detected, prompt, model);
+      const raw = await callOpenRouter(imageBuffer, detected, prompt, targetModel, attempt);
       return normalizeReceiptData(raw, code);
     } catch (error) {
       lastError = error;
@@ -412,6 +422,11 @@ export async function extractReceipt(imageBuffer, imageType, currency) {
       // Reached maximum attempts, bubble up the error
       if (attempt >= MAX_EXTRACTION_ATTEMPTS) {
         throw error;
+      }
+      // Wait before retrying the same model
+      const delayMs = getRetryDelay();
+      if (delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
     }
   }

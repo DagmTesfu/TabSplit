@@ -2,12 +2,15 @@
 import { test, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import app from './index.js';
-import { assertSupportedCurrency, detectImageType, normalizeReceiptData, AiError, extractReceipt, MAX_IMAGE_BYTES } from './ai.js';
+import {
+  assertSupportedCurrency, detectImageType, normalizeReceiptData, AiError,
+  extractReceipt, MAX_IMAGE_BYTES, setRetryDelayForTesting, DEFAULT_VISION_MODEL,
+} from './ai.js';
 import { extractRateLimiter } from './middleware/rateLimit.js';
 
 const realFetch = globalThis.fetch;
 const originalEnvironment = Object.fromEntries(
-  ['OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'OPENAI_VISION_MODEL', 'PORT'].map((key) => [key, process.env[key]])
+  ['OPENROUTER_API_KEY', 'OPENROUTER_MODEL', 'OPENAI_API_KEY', 'OPENAI_VISION_MODEL', 'PORT'].map((key) => [key, process.env[key]])
 );
 // Signatures exercise sniffing only, not image decoding or live OCR quality.
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
@@ -29,15 +32,18 @@ const normalized = {
 
 beforeEach(() => {
   process.env.OPENROUTER_API_KEY = 'test-only-key';
+  delete process.env.OPENROUTER_MODEL;
   delete process.env.OPENAI_API_KEY;
   delete process.env.OPENAI_VISION_MODEL;
   delete process.env.PORT;
   extractRateLimiter.reset();
+  setRetryDelayForTesting(0);
 });
 
 // Cleanup runs even if assertions fail, without deleting a developer's real key.
 afterEach(() => {
   globalThis.fetch = realFetch;
+  setRetryDelayForTesting(null);
   for (const [key, value] of Object.entries(originalEnvironment)) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
@@ -391,8 +397,8 @@ test('extraction: provider receives validated bytes and returns normalized JSON'
   const options = mocked.mock.calls[0].arguments[1];
   const body = JSON.parse(options.body);
   assert.equal(options.headers.Authorization, 'Bearer test-only-key');
-  // OpenRouter free-model router with OpenAI-compatible chat completions.
-  assert.equal(body.model, 'openrouter/free');
+  // OpenRouter model with OpenAI-compatible chat completions.
+  assert.equal(body.model, 'google/gemma-4-26b-a4b-it:free');
   assert.equal(body.store, false);
   assert.equal(body.messages[1].content[0].image_url.url, `data:image/jpeg;base64,${JPEG.toString('base64')}`);
   assert.ok(options.signal instanceof AbortSignal);
@@ -455,62 +461,114 @@ test('extraction: refuses prose, arrays, truncation and invalid content types', 
   }
 });
 
-test('retry: succeeds on 2nd attempt after transient PROVIDER_ERROR', async () => {
-  process.env.OPENROUTER_API_KEY = 'test-only-key';
-  let callCount = 0;
-  const mocked = mock.method(globalThis, 'fetch', async () => {
-    callCount++;
-    if (callCount === 1) {
-      return { ok: false, status: 502, text: async () => 'temporary provider error' };
+test('retry: first attempt succeeds -> exactly 1 request to default model', async () => {
+  const modelsUsed = [];
+  const mocked = mock.method(globalThis, 'fetch', async (url, options) => {
+    const payload = JSON.parse(options.body);
+    modelsUsed.push(payload.model);
+    return { ok: true, status: 200, text: async () => JSON.stringify(fakeReply(JSON.stringify(receipt))) };
+  });
+  const result = await extractReceipt(JPEG, 'image/jpeg', 'ETB');
+  assert.deepEqual(result, normalized);
+  assert.deepEqual(modelsUsed, [DEFAULT_VISION_MODEL]);
+  assert.equal(mocked.mock.callCount(), 1);
+  mocked.mock.restore();
+});
+
+test('retry: first attempt retryable 502 -> retries with SAME model on 2nd attempt and succeeds', async () => {
+  const modelsUsed = [];
+  const mocked = mock.method(globalThis, 'fetch', async (url, options) => {
+    const payload = JSON.parse(options.body);
+    modelsUsed.push(payload.model);
+    if (modelsUsed.length === 1) {
+      return { ok: false, status: 502, text: async () => '502 Bad Gateway', body: { cancel: async () => {} } };
     }
     return { ok: true, status: 200, text: async () => JSON.stringify(fakeReply(JSON.stringify(receipt))) };
   });
   const result = await extractReceipt(JPEG, 'image/jpeg', 'ETB');
   assert.deepEqual(result, normalized);
-  assert.equal(callCount, 2);
+  assert.deepEqual(modelsUsed, [DEFAULT_VISION_MODEL, DEFAULT_VISION_MODEL]);
+  assert.equal(mocked.mock.callCount(), 2);
   mocked.mock.restore();
 });
 
-test('retry: succeeds on 2nd attempt after transient malformed JSON / INVALID_RESPONSE', async () => {
-  process.env.OPENROUTER_API_KEY = 'test-only-key';
-  let callCount = 0;
-  const mocked = mock.method(globalThis, 'fetch', async () => {
-    callCount++;
-    if (callCount === 1) {
-      return { ok: true, status: 200, text: async () => JSON.stringify(fakeReply('malformed non-json')) };
+test('retry: first attempt retryable 429 -> retries with SAME model on 2nd attempt', async () => {
+  const modelsUsed = [];
+  const mocked = mock.method(globalThis, 'fetch', async (url, options) => {
+    const payload = JSON.parse(options.body);
+    modelsUsed.push(payload.model);
+    if (modelsUsed.length === 1) {
+      return { ok: false, status: 429, text: async () => 'Rate limited', body: { cancel: async () => {} } };
     }
     return { ok: true, status: 200, text: async () => JSON.stringify(fakeReply(JSON.stringify(receipt))) };
   });
   const result = await extractReceipt(JPEG, 'image/jpeg', 'ETB');
   assert.deepEqual(result, normalized);
-  assert.equal(callCount, 2);
+  assert.deepEqual(modelsUsed, [DEFAULT_VISION_MODEL, DEFAULT_VISION_MODEL]);
+  assert.equal(mocked.mock.callCount(), 2);
   mocked.mock.restore();
 });
 
-test('retry: succeeds on 2nd attempt after transient invalid schema from model', async () => {
-  process.env.OPENROUTER_API_KEY = 'test-only-key';
-  let callCount = 0;
-  const mocked = mock.method(globalThis, 'fetch', async () => {
-    callCount++;
-    if (callCount === 1) {
-      return { ok: true, status: 200, text: async () => JSON.stringify(fakeReply(JSON.stringify({ items: [] }))) };
+test('retry: timeout on 1st attempt -> retries with SAME model on 2nd attempt', async () => {
+  const modelsUsed = [];
+  const mocked = mock.method(globalThis, 'fetch', async (url, options) => {
+    const payload = JSON.parse(options.body);
+    modelsUsed.push(payload.model);
+    if (modelsUsed.length === 1) {
+      const timeoutErr = new Error('The operation was aborted');
+      timeoutErr.name = 'TimeoutError';
+      throw timeoutErr;
     }
     return { ok: true, status: 200, text: async () => JSON.stringify(fakeReply(JSON.stringify(receipt))) };
   });
   const result = await extractReceipt(JPEG, 'image/jpeg', 'ETB');
   assert.deepEqual(result, normalized);
-  assert.equal(callCount, 2);
+  assert.deepEqual(modelsUsed, [DEFAULT_VISION_MODEL, DEFAULT_VISION_MODEL]);
+  assert.equal(mocked.mock.callCount(), 2);
   mocked.mock.restore();
 });
 
-test('retry: stops at maximum 2 attempts on persistent failure', async () => {
-  process.env.OPENROUTER_API_KEY = 'test-only-key';
+test('retry: malformed JSON on 1st attempt -> retries with SAME model on 2nd attempt', async () => {
+  const modelsUsed = [];
+  const mocked = mock.method(globalThis, 'fetch', async (url, options) => {
+    const payload = JSON.parse(options.body);
+    modelsUsed.push(payload.model);
+    if (modelsUsed.length === 1) {
+      return { ok: true, status: 200, text: async () => '<html>502 Bad Gateway Cloudflare</html>' };
+    }
+    return { ok: true, status: 200, text: async () => JSON.stringify(fakeReply(JSON.stringify(receipt))) };
+  });
+  const result = await extractReceipt(JPEG, 'image/jpeg', 'ETB');
+  assert.deepEqual(result, normalized);
+  assert.deepEqual(modelsUsed, [DEFAULT_VISION_MODEL, DEFAULT_VISION_MODEL]);
+  assert.equal(mocked.mock.callCount(), 2);
+  mocked.mock.restore();
+});
+
+test('retry: non-retryable error (NOT_CONFIGURED / INVALID_IMAGE / INVALID_CURRENCY) -> no retry', async () => {
+  delete process.env.OPENROUTER_API_KEY;
   let callCount = 0;
   const mocked = mock.method(globalThis, 'fetch', async () => {
     callCount++;
-    return { ok: true, status: 200, text: async () => JSON.stringify(fakeReply('not json')) };
+    return { ok: true, status: 200, text: async () => JSON.stringify(fakeReply(JSON.stringify(receipt))) };
   });
-  await assert.rejects(() => extractReceipt(JPEG, 'image/jpeg', 'ETB'), { code: 'INVALID_RESPONSE' });
+  await assert.rejects(() => extractReceipt(JPEG, 'image/jpeg', 'ETB'), { code: 'NOT_CONFIGURED' });
+  assert.equal(callCount, 0);
+
+  process.env.OPENROUTER_API_KEY = 'test-only-key';
+  await assert.rejects(() => extractReceipt(Buffer.from('not an image'), 'image/jpeg', 'ETB'), { code: 'INVALID_IMAGE' });
+  await assert.rejects(() => extractReceipt(JPEG, 'image/jpeg', 'INVALID_CURRENCY'), { code: 'INVALID_CURRENCY' });
+  assert.equal(callCount, 0);
+  mocked.mock.restore();
+});
+
+test('retry: stops at maximum 2 attempts and returns correct final error', async () => {
+  let callCount = 0;
+  const mocked = mock.method(globalThis, 'fetch', async () => {
+    callCount++;
+    return { ok: false, status: 502, text: async () => 'persistent provider error', body: { cancel: async () => {} } };
+  });
+  await assert.rejects(() => extractReceipt(JPEG, 'image/jpeg', 'ETB'), { code: 'PROVIDER_ERROR' });
   assert.equal(callCount, 2);
   mocked.mock.restore();
 });

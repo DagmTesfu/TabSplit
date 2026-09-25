@@ -15,7 +15,7 @@ export async function extractReceipt(receiptFile, currency) {
   formData.append('currency', currency);
 
   try {
-    const response = await axios.post(URL, formData, { timeout: 70000 });
+    const response = await axios.post(URL, formData, { timeout: 100000 });
     return response.data;
   } catch (err) {
     let message = err.message || 'Failed to scan receipt. Please try again.';
