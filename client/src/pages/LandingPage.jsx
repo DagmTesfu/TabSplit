@@ -390,7 +390,7 @@ export default function LandingPage() {
                 marginBottom: 12,
               }}
             >
-              No app to download. Use TabSplit right in your browser, or install it for quicker access.
+              Use TabSplit right in your browser on your phone or computer, or install it on your phone for quicker access.
             </p>
 
             <button
