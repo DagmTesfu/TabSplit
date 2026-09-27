@@ -5,6 +5,7 @@ import app from './index.js';
 import {
   assertSupportedCurrency, detectImageType, normalizeReceiptData, AiError,
   extractReceipt, MAX_IMAGE_BYTES, setRetryDelayForTesting, DEFAULT_VISION_MODEL,
+  FALLBACK_VISION_MODEL, CANDIDATE_VISION_MODELS,
 } from './ai.js';
 import { extractRateLimiter } from './middleware/rateLimit.js';
 
@@ -461,7 +462,7 @@ test('extraction: refuses prose, arrays, truncation and invalid content types', 
   }
 });
 
-test('retry: first attempt succeeds -> exactly 1 request to default model', async () => {
+test('retry: first attempt succeeds -> exactly 1 request using Gemma 4 26B', async () => {
   const modelsUsed = [];
   const mocked = mock.method(globalThis, 'fetch', async (url, options) => {
     const payload = JSON.parse(options.body);
@@ -470,12 +471,12 @@ test('retry: first attempt succeeds -> exactly 1 request to default model', asyn
   });
   const result = await extractReceipt(JPEG, 'image/jpeg', 'ETB');
   assert.deepEqual(result, normalized);
-  assert.deepEqual(modelsUsed, [DEFAULT_VISION_MODEL]);
+  assert.deepEqual(modelsUsed, ['google/gemma-4-26b-a4b-it:free']);
   assert.equal(mocked.mock.callCount(), 1);
   mocked.mock.restore();
 });
 
-test('retry: first attempt retryable 502 -> retries with SAME model on 2nd attempt and succeeds', async () => {
+test('retry: first attempt retryable 502 -> retries with Gemma 4 31B on 2nd attempt and succeeds', async () => {
   const modelsUsed = [];
   const mocked = mock.method(globalThis, 'fetch', async (url, options) => {
     const payload = JSON.parse(options.body);
@@ -487,12 +488,14 @@ test('retry: first attempt retryable 502 -> retries with SAME model on 2nd attem
   });
   const result = await extractReceipt(JPEG, 'image/jpeg', 'ETB');
   assert.deepEqual(result, normalized);
-  assert.deepEqual(modelsUsed, [DEFAULT_VISION_MODEL, DEFAULT_VISION_MODEL]);
+  // Attempt 1: Gemma 26B, Attempt 2: Gemma 31B (never openrouter/free)
+  assert.deepEqual(modelsUsed, ['google/gemma-4-26b-a4b-it:free', 'google/gemma-4-31b-it:free']);
+  assert.ok(!modelsUsed.includes('openrouter/free'));
   assert.equal(mocked.mock.callCount(), 2);
   mocked.mock.restore();
 });
 
-test('retry: first attempt retryable 429 -> retries with SAME model on 2nd attempt', async () => {
+test('retry: first attempt retryable 429 -> retries with Gemma 4 31B on 2nd attempt', async () => {
   const modelsUsed = [];
   const mocked = mock.method(globalThis, 'fetch', async (url, options) => {
     const payload = JSON.parse(options.body);
@@ -504,12 +507,12 @@ test('retry: first attempt retryable 429 -> retries with SAME model on 2nd attem
   });
   const result = await extractReceipt(JPEG, 'image/jpeg', 'ETB');
   assert.deepEqual(result, normalized);
-  assert.deepEqual(modelsUsed, [DEFAULT_VISION_MODEL, DEFAULT_VISION_MODEL]);
+  assert.deepEqual(modelsUsed, ['google/gemma-4-26b-a4b-it:free', 'google/gemma-4-31b-it:free']);
   assert.equal(mocked.mock.callCount(), 2);
   mocked.mock.restore();
 });
 
-test('retry: timeout on 1st attempt -> retries with SAME model on 2nd attempt', async () => {
+test('retry: timeout on 1st attempt -> retries with Gemma 4 31B on 2nd attempt', async () => {
   const modelsUsed = [];
   const mocked = mock.method(globalThis, 'fetch', async (url, options) => {
     const payload = JSON.parse(options.body);
@@ -523,12 +526,12 @@ test('retry: timeout on 1st attempt -> retries with SAME model on 2nd attempt', 
   });
   const result = await extractReceipt(JPEG, 'image/jpeg', 'ETB');
   assert.deepEqual(result, normalized);
-  assert.deepEqual(modelsUsed, [DEFAULT_VISION_MODEL, DEFAULT_VISION_MODEL]);
+  assert.deepEqual(modelsUsed, ['google/gemma-4-26b-a4b-it:free', 'google/gemma-4-31b-it:free']);
   assert.equal(mocked.mock.callCount(), 2);
   mocked.mock.restore();
 });
 
-test('retry: malformed JSON on 1st attempt -> retries with SAME model on 2nd attempt', async () => {
+test('retry: malformed JSON on 1st attempt -> retries with Gemma 4 31B on 2nd attempt', async () => {
   const modelsUsed = [];
   const mocked = mock.method(globalThis, 'fetch', async (url, options) => {
     const payload = JSON.parse(options.body);
@@ -540,7 +543,7 @@ test('retry: malformed JSON on 1st attempt -> retries with SAME model on 2nd att
   });
   const result = await extractReceipt(JPEG, 'image/jpeg', 'ETB');
   assert.deepEqual(result, normalized);
-  assert.deepEqual(modelsUsed, [DEFAULT_VISION_MODEL, DEFAULT_VISION_MODEL]);
+  assert.deepEqual(modelsUsed, ['google/gemma-4-26b-a4b-it:free', 'google/gemma-4-31b-it:free']);
   assert.equal(mocked.mock.callCount(), 2);
   mocked.mock.restore();
 });
@@ -563,13 +566,16 @@ test('retry: non-retryable error (NOT_CONFIGURED / INVALID_IMAGE / INVALID_CURRE
 });
 
 test('retry: stops at maximum 2 attempts and returns correct final error', async () => {
-  let callCount = 0;
-  const mocked = mock.method(globalThis, 'fetch', async () => {
-    callCount++;
+  const modelsUsed = [];
+  const mocked = mock.method(globalThis, 'fetch', async (url, options) => {
+    const payload = JSON.parse(options.body);
+    modelsUsed.push(payload.model);
     return { ok: false, status: 502, text: async () => 'persistent provider error', body: { cancel: async () => {} } };
   });
   await assert.rejects(() => extractReceipt(JPEG, 'image/jpeg', 'ETB'), { code: 'PROVIDER_ERROR' });
-  assert.equal(callCount, 2);
+  assert.deepEqual(modelsUsed, ['google/gemma-4-26b-a4b-it:free', 'google/gemma-4-31b-it:free']);
+  assert.equal(modelsUsed.length, 2);
+  assert.ok(!modelsUsed.includes('openrouter/free'));
   mocked.mock.restore();
 });
 

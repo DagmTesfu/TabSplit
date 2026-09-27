@@ -309,10 +309,12 @@ If any purchased line cannot be read or represented in this format, return an em
 If this is not a receipt, return an empty items array. Do not add extra fields.`;
 }
 
-export const DEFAULT_VISION_MODEL = 'google/gemma-4-26b-a4b-it:free';
 export const CANDIDATE_VISION_MODELS = [
   'google/gemma-4-26b-a4b-it:free',
+  'google/gemma-4-31b-it:free',
 ];
+export const DEFAULT_VISION_MODEL = CANDIDATE_VISION_MODELS[0];
+export const FALLBACK_VISION_MODEL = CANDIDATE_VISION_MODELS[1];
 
 // Configurable only in hermetic tests to avoid slowing down test runs
 let retryDelayOverride = null;
@@ -401,12 +403,12 @@ export async function extractReceipt(imageBuffer, imageType, currency) {
     : (imageType === 'image/x-png' ? 'image/png' : imageType);
   if (detected !== canonicalType) throw new AiError('INVALID_IMAGE', 'Image contents do not match the declared type');
   const prompt = extractionPrompt(code);
-  const targetModel = process.env.OPENROUTER_MODEL || DEFAULT_VISION_MODEL;
 
   let lastError;
   for (let attempt = 1; attempt <= MAX_EXTRACTION_ATTEMPTS; attempt++) {
     try {
-      const raw = await callOpenRouter(imageBuffer, detected, prompt, targetModel, attempt);
+      const modelForAttempt = process.env.OPENROUTER_MODEL || CANDIDATE_VISION_MODELS[attempt - 1] || DEFAULT_VISION_MODEL;
+      const raw = await callOpenRouter(imageBuffer, detected, prompt, modelForAttempt, attempt);
       return normalizeReceiptData(raw, code);
     } catch (error) {
       lastError = error;
@@ -423,7 +425,7 @@ export async function extractReceipt(imageBuffer, imageType, currency) {
       if (attempt >= MAX_EXTRACTION_ATTEMPTS) {
         throw error;
       }
-      // Wait before retrying the same model
+      // Wait before retrying with the fallback model
       const delayMs = getRetryDelay();
       if (delayMs > 0) {
         await new Promise((resolve) => setTimeout(resolve, delayMs));
