@@ -364,22 +364,67 @@ async function callOpenRouter(imageBuffer, imageType, prompt, modelOverride, att
       signal: AbortSignal.timeout(45000),
     });
     if (!response.ok) {
-      await response.body?.cancel();
+      // Safe error observability: capture structured error info without leaking secrets
+      let errorDetail = {};
+      try {
+        const errorText = (await response.text()).slice(0, 512);
+        try {
+          const errorJson = JSON.parse(errorText);
+          const err = errorJson?.error || errorJson;
+          if (err?.code) errorDetail.code = String(err.code).slice(0, 80);
+          if (err?.type) errorDetail.type = String(err.type).slice(0, 80);
+          if (err?.message) errorDetail.message = String(err.message).slice(0, 200);
+        } catch {
+          // Not JSON — include a short sanitized snippet
+          errorDetail.body = errorText.slice(0, 200);
+        }
+      } catch {
+        // Could not read body at all
+        errorDetail.body = '(unreadable)';
+      }
+      console.log('[AI] Vision extraction error:', JSON.stringify({
+        attempt,
+        model,
+        httpStatus: response.status,
+        ...errorDetail,
+      }));
       throw new AiError('PROVIDER_ERROR', 'Vision provider is unavailable or rejected the image. Try again with a clear JPEG, PNG or WebP.');
     }
     // The free router intermittently returns 200s with HTML/SSE/error bodies.
     // That is a provider availability problem, not an unreadable receipt, so
     // it must be retryable (PROVIDER_ERROR) rather than INVALID_RESPONSE.
+    let responseText;
     try {
-      reply = JSON.parse(await response.text());
+      responseText = await response.text();
+      reply = JSON.parse(responseText);
     } catch {
+      console.log('[AI] Vision extraction error:', JSON.stringify({
+        attempt,
+        model,
+        httpStatus: 200,
+        message: 'Response body is not valid JSON',
+        body: (responseText || '').slice(0, 200),
+      }));
       throw new AiError('PROVIDER_ERROR', 'Vision provider returned a malformed response. Please try again.');
     }
   } catch (error) {
     if (error instanceof AiError) throw error;
     if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+      console.log('[AI] Vision extraction error:', JSON.stringify({
+        attempt,
+        model,
+        message: 'Request timed out after 45s',
+        errorName: error.name,
+      }));
       throw new AiError('PROVIDER_TIMEOUT', 'Receipt extraction timed out. Please try again.');
     }
+    console.log('[AI] Vision extraction error:', JSON.stringify({
+      attempt,
+      model,
+      message: 'Network error',
+      errorName: error.name,
+      errorMessage: String(error.message || '').slice(0, 200),
+    }));
     throw new AiError('PROVIDER_ERROR', 'Could not reach vision provider. Please try again.');
   }
   return parseReply(reply);
