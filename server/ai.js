@@ -388,7 +388,9 @@ async function callOpenRouter(imageBuffer, imageType, prompt, modelOverride, att
         httpStatus: response.status,
         ...errorDetail,
       }));
-      throw new AiError('PROVIDER_ERROR', 'Vision provider is unavailable or rejected the image. Try again with a clear JPEG, PNG or WebP.');
+      const aiErr = new AiError('PROVIDER_ERROR', 'Vision provider is unavailable or rejected the image. Try again with a clear JPEG, PNG or WebP.');
+      aiErr._logged = true;
+      throw aiErr;
     }
     // The free router intermittently returns 200s with HTML/SSE/error bodies.
     // That is a provider availability problem, not an unreadable receipt, so
@@ -401,11 +403,30 @@ async function callOpenRouter(imageBuffer, imageType, prompt, modelOverride, att
       console.log('[AI] Vision extraction error:', JSON.stringify({
         attempt,
         model,
-        httpStatus: 200,
+        httpStatus: response.status || 200,
         message: 'Response body is not valid JSON',
         body: (responseText || '').slice(0, 200),
       }));
-      throw new AiError('PROVIDER_ERROR', 'Vision provider returned a malformed response. Please try again.');
+      const aiErr = new AiError('PROVIDER_ERROR', 'Vision provider returned a malformed response. Please try again.');
+      aiErr._logged = true;
+      throw aiErr;
+    }
+
+    if (reply?.error) {
+      const err = reply.error;
+      const errorDetail = {};
+      if (err?.code) errorDetail.code = String(err.code).slice(0, 80);
+      if (err?.type) errorDetail.type = String(err.type).slice(0, 80);
+      if (err?.message) errorDetail.message = String(err.message).slice(0, 200);
+      console.log('[AI] Vision extraction error:', JSON.stringify({
+        attempt,
+        model,
+        httpStatus: response.status || 200,
+        ...errorDetail,
+      }));
+      const aiErr = new AiError('PROVIDER_ERROR', 'Vision provider is unavailable or rejected the image. Try again with a clear JPEG, PNG or WebP.');
+      aiErr._logged = true;
+      throw aiErr;
     }
   } catch (error) {
     if (error instanceof AiError) throw error;
@@ -416,7 +437,9 @@ async function callOpenRouter(imageBuffer, imageType, prompt, modelOverride, att
         message: 'Request timed out after 45s',
         errorName: error.name,
       }));
-      throw new AiError('PROVIDER_TIMEOUT', 'Receipt extraction timed out. Please try again.');
+      const aiErr = new AiError('PROVIDER_TIMEOUT', 'Receipt extraction timed out. Please try again.');
+      aiErr._logged = true;
+      throw aiErr;
     }
     console.log('[AI] Vision extraction error:', JSON.stringify({
       attempt,
@@ -425,9 +448,28 @@ async function callOpenRouter(imageBuffer, imageType, prompt, modelOverride, att
       errorName: error.name,
       errorMessage: String(error.message || '').slice(0, 200),
     }));
-    throw new AiError('PROVIDER_ERROR', 'Could not reach vision provider. Please try again.');
+    const aiErr = new AiError('PROVIDER_ERROR', 'Could not reach vision provider. Please try again.');
+    aiErr._logged = true;
+    throw aiErr;
   }
-  return parseReply(reply);
+
+  try {
+    return parseReply(reply);
+  } catch (error) {
+    if (!error._logged) {
+      console.log('[AI] Vision extraction error:', JSON.stringify({
+        attempt,
+        model,
+        httpStatus: 200,
+        errorCode: error.code || 'INVALID_RESPONSE',
+        message: error.message,
+        finishReason: reply?.choices?.[0]?.finish_reason,
+        hasChoices: Boolean(reply?.choices?.length),
+      }));
+      error._logged = true;
+    }
+    throw error;
+  }
 }
 
 // Public contract: buffer + MIME type + server-validated currency in;
@@ -451,12 +493,21 @@ export async function extractReceipt(imageBuffer, imageType, currency) {
 
   let lastError;
   for (let attempt = 1; attempt <= MAX_EXTRACTION_ATTEMPTS; attempt++) {
+    const modelForAttempt = process.env.OPENROUTER_MODEL || CANDIDATE_VISION_MODELS[attempt - 1] || DEFAULT_VISION_MODEL;
     try {
-      const modelForAttempt = process.env.OPENROUTER_MODEL || CANDIDATE_VISION_MODELS[attempt - 1] || DEFAULT_VISION_MODEL;
       const raw = await callOpenRouter(imageBuffer, detected, prompt, modelForAttempt, attempt);
       return normalizeReceiptData(raw, code);
     } catch (error) {
       lastError = error;
+      if (!error._logged) {
+        console.log('[AI] Vision extraction error:', JSON.stringify({
+          attempt,
+          model: modelForAttempt,
+          errorCode: error.code || error.name || 'UNKNOWN',
+          errorMessage: String(error.message || '').slice(0, 200),
+        }));
+        error._logged = true;
+      }
       // Do not retry configuration or client input validation errors
       if (
         !(error instanceof AiError) ||
