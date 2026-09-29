@@ -316,6 +316,11 @@ export const CANDIDATE_VISION_MODELS = [
 export const DEFAULT_VISION_MODEL = CANDIDATE_VISION_MODELS[0];
 export const FALLBACK_VISION_MODEL = CANDIDATE_VISION_MODELS[1];
 
+export const CANDIDATE_GEMINI_MODELS = [
+  'gemini-3.5-flash-lite',
+  'gemini-flash-latest',
+];
+
 // Configurable only in hermetic tests to avoid slowing down test runs
 let retryDelayOverride = null;
 export function setRetryDelayForTesting(ms) {
@@ -337,11 +342,19 @@ function getRateLimitDelay() {
 // Native fetch avoids an SDK dependency. Provider bodies/errors are never sent
 // back to callers, since they can contain request details or sensitive data.
 async function callOpenRouter(imageBuffer, imageType, prompt, modelOverride, attempt = 1) {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey?.trim()) {
-    throw new AiError('NOT_CONFIGURED', 'Receipt extraction is not configured (missing OPENROUTER_API_KEY)');
+  const geminiKey = process.env.GEMINI_API_KEY?.trim();
+  const openrouterKey = process.env.OPENROUTER_API_KEY?.trim();
+  const isGemini = Boolean(geminiKey);
+  const apiKey = geminiKey || openrouterKey;
+  if (!apiKey) {
+    throw new AiError('NOT_CONFIGURED', 'Receipt extraction is not configured (missing GEMINI_API_KEY or OPENROUTER_API_KEY)');
   }
-  const model = modelOverride || process.env.OPENROUTER_MODEL || DEFAULT_VISION_MODEL;
+  const endpoint = isGemini
+    ? 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+    : 'https://openrouter.ai/api/v1/chat/completions';
+  const model = modelOverride || (isGemini
+    ? (process.env.GEMINI_MODEL || CANDIDATE_GEMINI_MODELS[0])
+    : (process.env.OPENROUTER_MODEL || DEFAULT_VISION_MODEL));
 
   // Safe observability logging: model, attempt and image metadata only (no keys, no base64, no user content)
   console.log('[AI] Vision extraction request:', JSON.stringify({
@@ -355,7 +368,7 @@ async function callOpenRouter(imageBuffer, imageType, prompt, modelOverride, att
   try {
     const payload = {
       model,
-      store: false,
+      ...(isGemini ? {} : { store: false }),
       messages: [
         { role: 'system', content: prompt },
         { role: 'user', content: [{ type: 'image_url', image_url: {
@@ -366,7 +379,7 @@ async function callOpenRouter(imageBuffer, imageType, prompt, modelOverride, att
       max_tokens: 6000,
     };
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -505,9 +518,14 @@ export async function extractReceipt(imageBuffer, imageType, currency) {
   if (detected !== canonicalType) throw new AiError('INVALID_IMAGE', 'Image contents do not match the declared type');
   const prompt = extractionPrompt(code);
 
+  const isGemini = Boolean(process.env.GEMINI_API_KEY?.trim());
+  const candidateModels = isGemini ? CANDIDATE_GEMINI_MODELS : CANDIDATE_VISION_MODELS;
+  const defaultModel = candidateModels[0];
+  const modelEnv = isGemini ? process.env.GEMINI_MODEL : process.env.OPENROUTER_MODEL;
+
   let lastError;
   for (let attempt = 1; attempt <= MAX_EXTRACTION_ATTEMPTS; attempt++) {
-    const modelForAttempt = process.env.OPENROUTER_MODEL || CANDIDATE_VISION_MODELS[attempt - 1] || DEFAULT_VISION_MODEL;
+    const modelForAttempt = modelEnv || candidateModels[attempt - 1] || defaultModel;
     try {
       const raw = await callOpenRouter(imageBuffer, detected, prompt, modelForAttempt, attempt);
       return normalizeReceiptData(raw, code);

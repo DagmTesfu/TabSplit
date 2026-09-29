@@ -11,7 +11,7 @@ import { extractRateLimiter } from './middleware/rateLimit.js';
 
 const realFetch = globalThis.fetch;
 const originalEnvironment = Object.fromEntries(
-  ['OPENROUTER_API_KEY', 'OPENROUTER_MODEL', 'OPENAI_API_KEY', 'OPENAI_VISION_MODEL', 'PORT'].map((key) => [key, process.env[key]])
+  ['OPENROUTER_API_KEY', 'OPENROUTER_MODEL', 'OPENAI_API_KEY', 'OPENAI_VISION_MODEL', 'GEMINI_API_KEY', 'GEMINI_MODEL', 'PORT'].map((key) => [key, process.env[key]])
 );
 // Signatures exercise sniffing only, not image decoding or live OCR quality.
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
@@ -36,6 +36,8 @@ beforeEach(() => {
   delete process.env.OPENROUTER_MODEL;
   delete process.env.OPENAI_API_KEY;
   delete process.env.OPENAI_VISION_MODEL;
+  delete process.env.GEMINI_API_KEY;
+  delete process.env.GEMINI_MODEL;
   delete process.env.PORT;
   extractRateLimiter.reset();
   setRetryDelayForTesting(0);
@@ -644,6 +646,42 @@ test('rate-limit: 429 response does not expose OpenRouter internals to caller me
       return true;
     },
   );
+  mocked.mock.restore();
+});
+
+test('gemini: uses Google AI Studio endpoint and gemini-3.5-flash-lite when GEMINI_API_KEY is configured', async () => {
+  process.env.GEMINI_API_KEY = 'test-gemini-key';
+  let calledUrl = '';
+  let authHeader = '';
+  let requestModel = '';
+  const mocked = mock.method(globalThis, 'fetch', async (url, options) => {
+    calledUrl = url;
+    authHeader = options.headers.Authorization;
+    requestModel = JSON.parse(options.body).model;
+    return { ok: true, status: 200, text: async () => JSON.stringify(fakeReply(JSON.stringify(receipt))) };
+  });
+  const result = await extractReceipt(JPEG, 'image/jpeg', 'ETB');
+  assert.deepEqual(result, normalized);
+  assert.equal(calledUrl, 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions');
+  assert.equal(authHeader, 'Bearer test-gemini-key');
+  assert.equal(requestModel, 'gemini-3.5-flash-lite');
+  mocked.mock.restore();
+});
+
+test('gemini: falls back to gemini-flash-latest on 2nd attempt when attempt 1 fails', async () => {
+  process.env.GEMINI_API_KEY = 'test-gemini-key';
+  const modelsUsed = [];
+  const mocked = mock.method(globalThis, 'fetch', async (url, options) => {
+    const payload = JSON.parse(options.body);
+    modelsUsed.push(payload.model);
+    if (modelsUsed.length === 1) {
+      return { ok: false, status: 503, text: async () => 'Unavailable' };
+    }
+    return { ok: true, status: 200, text: async () => JSON.stringify(fakeReply(JSON.stringify(receipt))) };
+  });
+  const result = await extractReceipt(JPEG, 'image/jpeg', 'ETB');
+  assert.deepEqual(result, normalized);
+  assert.deepEqual(modelsUsed, ['gemini-3.5-flash-lite', 'gemini-flash-latest']);
   mocked.mock.restore();
 });
 
