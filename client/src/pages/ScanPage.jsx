@@ -21,72 +21,23 @@ const selectStyle = {
   cursor: 'pointer',
 };
 
-async function optimizeImageForScan(file) {
-  if (!file || typeof window === 'undefined' || typeof Image === 'undefined') return file;
+import {
+  ALLOWED_IMAGE_TYPES,
+  MAX_ORIGINAL_BYTES,
+  MAX_OPTIMIZED_BYTES,
+  isAllowedImageType,
+  optimizeImageForScan,
+  processReceiptFile,
+} from '../imageOptimization.js';
 
-  return new Promise((resolve) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const maxDim = 1600;
-      let { width, height } = img;
-
-      // If already within optimal dimensions, use original
-      if (width <= maxDim && height <= maxDim && file.size <= 1024 * 1024) {
-        resolve(file);
-        return;
-      }
-
-      if (width > height) {
-        if (width > maxDim) {
-          height = Math.round((height * maxDim) / width);
-          width = maxDim;
-        }
-      } else {
-        if (height > maxDim) {
-          width = Math.round((width * maxDim) / height);
-          height = maxDim;
-        }
-      }
-
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(file);
-          return;
-        }
-        ctx.drawImage(img, 0, 0, width, height);
-
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              const cleanName = (file.name || 'receipt.jpg').replace(/\.[^/.]+$/, '') + '.jpg';
-              resolve(new File([blob], cleanName, { type: 'image/jpeg' }));
-            } else {
-              resolve(file);
-            }
-          },
-          'image/jpeg',
-          0.85
-        );
-      } catch {
-        resolve(file);
-      }
-    };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve(file);
-    };
-
-    img.src = url;
-  });
-}
+export {
+  ALLOWED_IMAGE_TYPES,
+  MAX_ORIGINAL_BYTES,
+  MAX_OPTIMIZED_BYTES,
+  isAllowedImageType,
+  optimizeImageForScan,
+  processReceiptFile,
+};
 
 export default function ScanPage() {
   const [currency, setCurrency] = useState('ETB');
@@ -99,8 +50,6 @@ export default function ScanPage() {
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
   const navigate = useNavigate();
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-  const maxSize = 5 * 1024 * 1024;
 
   useEffect(() => {
     if (!receiptFile) {
@@ -168,6 +117,11 @@ export default function ScanPage() {
       return;
     }
 
+    if (receiptFile.size > MAX_OPTIMIZED_BYTES) {
+      setFileError('Receipt image must be 5 MB or smaller.');
+      return;
+    }
+
     try {
       setIsScanning(true);
       setScanError(null);
@@ -184,51 +138,20 @@ export default function ScanPage() {
     }
   };
 
-  const isAllowedImageType = (file) => {
-    if (!file) return false;
-    if (allowedTypes.includes(file.type)) return true;
-    // Android Gallery fallback: check filename extension if MIME type is missing or generic
-    const name = (file.name || '').toLowerCase();
-    return name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || name.endsWith('.webp');
-  };
-
   const handleFileSelected = async (file) => {
     if (!file) return;
-
-    if (!isAllowedImageType(file)) {
-      setFileError('Please select a JPEG, PNG, or WebP image.');
-      setReceiptFile(null);
-      return;
-    }
-
-    if (file.size > maxSize) {
-      setFileError('Receipt image must be 5 MB or smaller.');
-      setReceiptFile(null);
-      return;
-    }
-
-    // Ensure normalized MIME type for mobile browsers (e.g. image/jpg or empty string -> image/jpeg)
-    let normalizedFile = file;
-    let mimeType = file.type;
-    if (!mimeType || mimeType === 'image/jpg' || mimeType === 'image/pjpeg') {
-      const name = (file.name || '').toLowerCase();
-      if (name.endsWith('.png')) mimeType = 'image/png';
-      else if (name.endsWith('.webp')) mimeType = 'image/webp';
-      else mimeType = 'image/jpeg';
-      normalizedFile = new File([file], file.name || 'receipt.jpg', { type: mimeType });
-    }
 
     setFileError(null);
     setScanError(null);
 
-    // Optimize high-resolution phone camera photos for fast upload and high AI accuracy
-    try {
-      normalizedFile = await optimizeImageForScan(normalizedFile);
-    } catch {
-      // If optimization fails, fallback to normalized file
+    const { file: processedFile, error } = await processReceiptFile(file);
+    if (error) {
+      setFileError(error);
+      setReceiptFile(null);
+      return;
     }
 
-    setReceiptFile(normalizedFile);
+    setReceiptFile(processedFile);
   };
 
   const handleInputChange = (event) => {

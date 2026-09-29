@@ -2,6 +2,7 @@ import test, { mock, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import axios from 'axios';
 import { extractReceipt, finalizeBill, getBill, buildFinalizePayload } from './api.js';
+import { processReceiptFile, MAX_ORIGINAL_BYTES, MAX_OPTIMIZED_BYTES } from './imageOptimization.js';
 
 afterEach(() => {
   mock.restoreAll();
@@ -104,19 +105,85 @@ test('2. Let a scan fail and confirm Try Again works without reselecting image',
   assert.equal(attempt, 2);
 });
 
-test('3. Test large image > 5 MB rejection on client and server', async () => {
-  const maxSize = 5 * 1024 * 1024; // 5 MB
-  const oversizeBytes = 6 * 1024 * 1024; // 6 MB
+test('3.1. A 3 MB image -> optimization works and produces valid file', async () => {
+  const threeMbFile = {
+    name: 'receipt.jpg',
+    type: 'image/jpeg',
+    size: 3 * 1024 * 1024,
+  };
+  const mockOptimizer = async () => ({
+    name: 'receipt.jpg',
+    type: 'image/jpeg',
+    size: 400 * 1024,
+  });
+  const { file, error } = await processReceiptFile(threeMbFile, mockOptimizer);
+  assert.equal(error, null);
+  assert.notEqual(file, null);
+  assert.equal(file.size, 400 * 1024);
+});
 
-  // Client-side validation logic check (from ScanPage)
-  const oversizedFile = { size: oversizeBytes, type: 'image/jpeg' };
-  let clientFileError = null;
-  if (oversizedFile.size > maxSize) {
-    clientFileError = 'Receipt image must be 5 MB or smaller.';
-  }
-  assert.equal(clientFileError, 'Receipt image must be 5 MB or smaller.');
+test('3.2. A 10 MB original image -> accepted and optimized (not blocked before optimization)', async () => {
+  const tenMbFile = {
+    name: 'camera_48mp_receipt.jpg',
+    type: 'image/jpeg',
+    size: 10 * 1024 * 1024,
+  };
+  let optimizerInvoked = false;
+  const mockOptimizer = async () => {
+    optimizerInvoked = true;
+    return { name: 'camera_48mp_receipt.jpg', type: 'image/jpeg', size: 650 * 1024 };
+  };
+  const { file, error } = await processReceiptFile(tenMbFile, mockOptimizer);
+  assert.equal(optimizerInvoked, true, 'Optimizer must run for 10 MB original image');
+  assert.equal(error, null);
+  assert.notEqual(file, null);
+  assert.equal(file.size, 650 * 1024);
+});
 
-  // Server-side response contract check (413 IMAGE_TOO_LARGE)
+test('3.3. A large original that compresses below 5 MB -> upload is allowed', async () => {
+  const largeOriginalFile = {
+    name: 'huge_phone_photo.jpg',
+    type: 'image/jpeg',
+    size: 16 * 1024 * 1024, // 16 MB original
+  };
+  const mockOptimizer = async () => ({
+    name: 'huge_phone_photo.jpg',
+    type: 'image/jpeg',
+    size: 780 * 1024, // downscaled to 780 KB
+  });
+  const { file, error } = await processReceiptFile(largeOriginalFile, mockOptimizer);
+  assert.equal(error, null);
+  assert.ok(file.size <= MAX_OPTIMIZED_BYTES, 'Optimized file is well below 5 MB');
+
+  // Verify extractReceipt accepts the processed file
+  mock.method(axios, 'post', async () => ({
+    data: {
+      currency: 'USD',
+      items: [{ id: '1', name: 'Coffee', priceMinor: 400, quantity: 1 }],
+    },
+  }));
+  const result = await extractReceipt(file, 'USD');
+  assert.equal(result.items[0].name, 'Coffee');
+});
+
+test('3.4. An optimized result above 5 MB -> upload is rejected', async () => {
+  const stubbornFile = {
+    name: 'dense_uncompressible.jpg',
+    type: 'image/jpeg',
+    size: 12 * 1024 * 1024,
+  };
+  // Optimizer output still exceeds 5 MB
+  const mockOptimizer = async () => ({
+    name: 'dense_uncompressible.jpg',
+    type: 'image/jpeg',
+    size: 5.5 * 1024 * 1024,
+  });
+  const { file, error } = await processReceiptFile(stubbornFile, mockOptimizer);
+  assert.equal(file, null);
+  assert.equal(error, 'Receipt image must be 5 MB or smaller.');
+});
+
+test('3.5. Backend 5 MB limit remains unchanged and rejects payload > 5 MB with 413', async () => {
   mock.method(axios, 'post', async () => {
     const error = new Error('Payload too large');
     error.response = {
