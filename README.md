@@ -25,26 +25,39 @@ Screenshots
 
 Add your screenshots here.
 
-Landing Page
+## Screenshots
 
-[![alt text](images/image.png)]
+### Landing Page
 
-Receipt Review
+<p align="center">
+  <img src="images/image.png" width="280">
+</p>
 
-[![alt text](images/re.png)]
-[![alt text](images/image-1.png)]
+### Receipt Review
 
-Assign Items
+<p align="center">
+  <img src="images/re.png" width="240">
+  <img src="images/image-1.png" width="240">
+</p>
 
-[![alt text](images/pe.png)]
+### Assign Items
 
-Bill Summary
+<p align="center">
+  <img src="images/pe.png" width="240">
+</p>
 
-[![alt text](images/bill.png)]
+### Bill Summary
 
-Shared Bill
+<p align="center">
+  <img src="images/bill.png" width="240">
+</p>
 
-[![alt text](images/sh.png)]
+### Shared Bill
+
+<p align="center">
+  <img src="images/sh.png" width="240">
+</p>
+
 
 Live Demo
 
