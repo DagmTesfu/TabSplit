@@ -1,119 +1,218 @@
-# TabSplit
+TabSplit
 
-TabSplit is a receipt scanner and item-level bill splitting web application.
+Split the bill. Not the friendship.
 
-## Architecture
+TabSplit is a mobile-first receipt splitting app that makes it easy for groups to split restaurant bills. Take a photo of a receipt, review the extracted items, add your friends, assign items, and instantly generate a shareable bill.
 
-- **Frontend**: React 18 / Vite SPA (Deployed on **Vercel**)
-- **Backend**: Node.js / Express API (Deployed on **Render**)
-- **Database**: Supabase PostgreSQL with Row Level Security (RLS)
-- **Vision AI**: OpenRouter Chat Completions API (`openrouter/free`)
+What TabSplit Does
 
----
+TabSplit turns a restaurant receipt into a shared bill in a few simple steps:
 
-## Local Development
+Scan → Review → Add People → Assign → Share
 
-### 1. Backend
+📸 Take a photo or upload a receipt
+🤖 AI extracts the restaurant name, items, prices, tax, and total
+✏️ Review and correct anything the AI got wrong
+👥 Add the people sharing the bill
+🍕 Assign each item to one or more people
+🧮 Automatically calculate each person's share
+🔗 Generate a shareable link
+📱 Friends can open the link on their phones without creating an account
 
-```bash
-cd server
-npm install
-cp .env.example .env
-# Fill in OPENROUTER_API_KEY, SUPABASE_URL, and SUPABASE_SERVICE_ROLE_KEY in .env
-npm run dev
-```
+The app currently supports ETB and USD.
 
-The Express API starts at `http://localhost:4000`.
+Screenshots
 
-### 2. Frontend
+Add your screenshots here.
 
-```bash
-cd client
-npm install
-npm run dev
-```
+Landing Page
 
-The Vite dev server starts at `http://localhost:5173`. In development, requests to `/api/*` are automatically proxied to `http://localhost:4000`.
+[![alt text](images/image.png)]
 
----
+Receipt Review
 
-## Production Deployment Guide
+[![alt text](images/re.png)]
+[![alt text](images/image-1.png)]
 
-### 1. Database (Supabase)
+Assign Items
 
-1. Create a new project in [Supabase](https://supabase.com).
-2. Open the **SQL Editor** and run the contents of [`server/supabase/schema.sql`](server/supabase/schema.sql).
-3. Confirm `bills` table is created with Row Level Security (RLS) enabled and zero public policies.
-4. Retrieve your `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from **Project Settings -> API** (used only on the backend).
+[![alt text](images/pe.png)]
 
----
+Bill Summary
 
-### 2. Backend (Render)
+[![alt text](images/bill.png)]
 
-1. Create a new **Web Service** on [Render](https://render.com) connected to this repository.
-2. Configure settings:
-   - **Root Directory**: `server`
-   - **Runtime**: `Node`
-   - **Build Command**: `npm install`
-   - **Start Command**: `npm start`
-3. Configure **Environment Variables**:
-   - `OPENROUTER_API_KEY`: Your OpenRouter API key.
-   - `SUPABASE_URL`: `https://<project-ref>.supabase.co`
-   - `SUPABASE_SERVICE_ROLE_KEY`: Secret service-role key (server-side only).
-   - `PUBLIC_APP_URL`: Your production frontend URL (e.g. `https://tabsplit.vercel.app`).
-   - `CLIENT_ORIGIN`: Your production frontend origin (e.g. `https://tabsplit.vercel.app`).
-   - `TRUST_PROXY`: `1` (enables Express to trust Render's single-hop reverse proxy for accurate rate-limiting).
-4. Verify backend startup by requesting `GET https://<your-render-service>.onrender.com/api/health` (returns `{"ok": true}`).
+Shared Bill
 
----
+[![alt text](images/sh.png)]
 
-### 3. Frontend (Vercel)
+Live Demo
 
-1. Create a new project on [Vercel](https://vercel.com) importing this repository.
-2. Configure settings:
-   - **Root Directory**: `client`
-   - **Framework Preset**: `Vite`
-   - **Build Command**: `npm run build`
-   - **Output Directory**: `dist`
-3. Configure **Environment Variables**:
-   - `VITE_API_BASE_URL`: Your backend API URL (e.g. `https://<your-render-service>.onrender.com`).
-4. SPA routing is pre-configured via [`client/vercel.json`](client/vercel.json) rewrite rules so deep links like `/b/:shareCode` load correctly.
+🌐 Try TabSplit
 
----
+You can use TabSplit directly from your browser. It works on both desktop and mobile, including phone camera and gallery uploads.
 
-## Production Deployment Smoke-Test Checklist
+Tech Stack
+Frontend
+React
+JavaScript
+Vite
+Tailwind CSS
+React Router
+Axios
+Progressive Web App (PWA)
+Backend
+Node.js
+Express.js
+JavaScript
+Multer
+REST API
+Database
+Supabase
+PostgreSQL
+Row Level Security (RLS)
+AI
+Google Gemini API
+Vision-capable Gemini model for receipt extraction
+Deployment
+Vercel — Frontend
+Render — Backend
+Supabase — Database
+Architecture
 
-Before releasing to users, verify the following steps against the deployed environments:
+TabSplit uses a simple client-server architecture where the frontend never communicates directly with Gemini or Supabase.
 
-- [ ] **1. Backend Health**: `GET /api/health` on Render returns HTTP 200 `{"ok": true}`.
-- [ ] **2. Frontend Initial Load**: Open production frontend URL on Vercel; landing page renders cleanly.
-- [ ] **3. Scan Receipt**: Upload a photo on `/scan` in ETB or USD.
-- [ ] **4. AI Extraction**: Extraction completes and redirects to `/review` with parsed items.
-- [ ] **5. Review & Edit**: Edit item names/prices, add/remove items; totals reflect updates.
-- [ ] **6. Add People**: Navigate to `/people`; add participants (names persist across pages).
-- [ ] **7. Assign Items**: Navigate to `/assign`; assign items to participants.
-- [ ] **8. Summary Calculation**: Verify `/summary` displays exact pro-rata tax/tip allocations.
-- [ ] **9. Finalize Bill**: Click Finalize; bill is persisted and redirects to `/finalized` with share link.
-- [ ] **10. Direct Shared Link**: Open `https://<frontend-domain>/b/<shareCode>` directly in an incognito window.
-- [ ] **11. Multi-Device Access**: Open shared bill URL on mobile; confirm responsive layout.
-- [ ] **12. Copy Link**: Tap "Copy Link"; verify share URL is copied to clipboard.
-- [ ] **13. Invalid Share Code**: Open `/b/invalidcode123`; verify user-friendly "Bill Not Found" page.
-- [ ] **14. CORS Protection**: Verify cross-origin requests from unapproved domains are rejected.
-- [ ] **15. Secret Shielding**: Verify no API keys or service role secrets are present in browser DevTools network/bundle inspection.
+                    ┌──────────────────────┐
+                    │       User           │
+                    │  Phone / Desktop     │
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │   React + Vite       │
+                    │      Frontend        │
+                    │       Vercel         │
+                    └──────────┬───────────┘
+                               │
+                         REST API
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │   Node + Express     │
+                    │       Backend        │
+                    │       Render         │
+                    └───────┬───────┬──────┘
+                            │       │
+                    Receipt │       │ Finalized
+                     Image  │       │ Bill
+                            ▼       ▼
+                  ┌────────────┐ ┌──────────────┐
+                  │   Gemini   │ │   Supabase   │
+                  │    Vision  │ │ PostgreSQL   │
+                  └────────────┘ └──────────────┘
+Why this architecture?
 
----
+The backend acts as the trusted layer between the user and external services.
 
-## Testing & Verification
+Gemini API keys never reach the browser.
+Receipt images are validated by the backend.
+Bill calculations are performed server-side.
+Supabase is accessed through the backend.
+Finalized bills are stored as the source of truth.
+Shared bills can be accessed through a unique share code without requiring authentication.
+How AI Receipt Extraction Works
 
-```bash
-# Server tests (unit, route, rate limiting, security audit)
-cd server
-npm test
+TabSplit uses Gemini's vision capabilities to read receipt images.
 
-# Client tests (unit, edge cases, error handling)
-cd client
-npm test
+The process looks like this:
 
-# Production client build
-npm run build
-```
+Receipt Image
+     │
+     ▼
+Frontend
+     │
+     │ image + selected currency
+     ▼
+Express Backend
+     │
+     │ validate image
+     │ validate currency
+     ▼
+Gemini Vision API
+     │
+     │ structured receipt data
+     ▼
+Express Backend
+     │
+     │ validate AI response
+     ▼
+Receipt Review Screen
+     │
+     │ human correction
+     ▼
+Final Bill
+1. User selects the currency
+
+Before scanning, the user selects the receipt currency, currently:
+
+ETB
+USD
+
+The selected currency is sent to the backend along with the image.
+
+2. Backend validates the image
+
+The backend checks:
+
+File type
+File signature/magic bytes
+File size
+Request limits
+
+The API key is kept entirely on the server.
+
+3. Gemini reads the receipt
+
+The image is sent to Gemini with instructions to extract structured information such as:
+
+{
+  "restaurantName": "Example Restaurant",
+  "currency": "ETB",
+  "items": [
+    {
+      "name": "Pizza",
+      "priceMinor": 60000
+    }
+  ],
+  "taxMinor": 0,
+  "printedTotalMinor": 60000
+}
+
+The AI is not responsible for calculating people's shares.
+
+It only reads information from the receipt.
+
+4. The user reviews the result
+
+AI extraction is never treated as automatically correct.
+
+The user can:
+
+Edit item names
+Change prices
+Add items
+Delete items
+Correct tax
+Correct the total
+5. The server calculates the bill
+
+After the user assigns items, the backend performs the actual calculations using deterministic integer-based money arithmetic.
+
+For example:
+
+Pizza = 600 ETB
+
+Dagm + Abel assigned
+
+Dagm = 300 ETB
+Abel = 300 ETB
