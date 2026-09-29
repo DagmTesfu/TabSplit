@@ -40,7 +40,7 @@ router.post('/extract-receipt', extractRateLimiter, (req, res) => {
       res.json(await extractReceipt(file.buffer, file.mimetype, req.body.currency));
     } catch (error) {
       if (error instanceof AiError) {
-        const status = { NOT_CONFIGURED: 503, PROVIDER_ERROR: 502, PROVIDER_TIMEOUT: 504, INVALID_RESPONSE: 422, INVALID_IMAGE: 400, INVALID_CURRENCY: 400 }[error.code] || 502;
+        const status = { NOT_CONFIGURED: 503, PROVIDER_ERROR: 502, RATE_LIMITED: 503, PROVIDER_TIMEOUT: 504, INVALID_RESPONSE: 422, INVALID_IMAGE: 400, INVALID_CURRENCY: 400 }[error.code] || 502;
         res.status(status).json({ error: error.message, code: error.code });
       } else {
         res.status(500).json({ error: 'Extraction failed. Please try again.' });

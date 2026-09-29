@@ -325,6 +325,15 @@ function getRetryDelay() {
   return retryDelayOverride !== null ? retryDelayOverride : 1000;
 }
 
+// Separate delay for rate-limit (429) retries — longer to respect upstream limits.
+let rateLimitDelayOverride = null;
+export function setRateLimitDelayForTesting(ms) {
+  rateLimitDelayOverride = ms;
+}
+function getRateLimitDelay() {
+  return rateLimitDelayOverride !== null ? rateLimitDelayOverride : 8000;
+}
+
 // Native fetch avoids an SDK dependency. Provider bodies/errors are never sent
 // back to callers, since they can contain request details or sensitive data.
 async function callOpenRouter(imageBuffer, imageType, prompt, modelOverride, attempt = 1) {
@@ -388,6 +397,11 @@ async function callOpenRouter(imageBuffer, imageType, prompt, modelOverride, att
         httpStatus: response.status,
         ...errorDetail,
       }));
+      if (response.status === 429) {
+        const aiErr = new AiError('RATE_LIMITED', 'Vision provider is temporarily rate-limited. Please try again in a moment.');
+        aiErr._logged = true;
+        throw aiErr;
+      }
       const aiErr = new AiError('PROVIDER_ERROR', 'Vision provider is unavailable or rejected the image. Try again with a clear JPEG, PNG or WebP.');
       aiErr._logged = true;
       throw aiErr;
@@ -517,12 +531,17 @@ export async function extractReceipt(imageBuffer, imageType, currency) {
       ) {
         throw error;
       }
-      // Reached maximum attempts, bubble up the error
+      // Reached maximum attempts — surface a user-friendly message for rate limits
       if (attempt >= MAX_EXTRACTION_ATTEMPTS) {
+        if (error.code === 'RATE_LIMITED') {
+          const finalErr = new AiError('RATE_LIMITED', 'Receipt scanning is temporarily busy. Please try again in a moment.');
+          finalErr._logged = true;
+          throw finalErr;
+        }
         throw error;
       }
-      // Wait before retrying with the fallback model
-      const delayMs = getRetryDelay();
+      // Use a longer delay for rate-limit retries to respect upstream limits
+      const delayMs = error.code === 'RATE_LIMITED' ? getRateLimitDelay() : getRetryDelay();
       if (delayMs > 0) {
         await new Promise((resolve) => setTimeout(resolve, delayMs));
       }

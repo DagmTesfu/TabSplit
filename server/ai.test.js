@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import app from './index.js';
 import {
   assertSupportedCurrency, detectImageType, normalizeReceiptData, AiError,
-  extractReceipt, MAX_IMAGE_BYTES, setRetryDelayForTesting, DEFAULT_VISION_MODEL,
-  FALLBACK_VISION_MODEL, CANDIDATE_VISION_MODELS,
+  extractReceipt, MAX_IMAGE_BYTES, setRetryDelayForTesting, setRateLimitDelayForTesting,
+  DEFAULT_VISION_MODEL, FALLBACK_VISION_MODEL, CANDIDATE_VISION_MODELS,
 } from './ai.js';
 import { extractRateLimiter } from './middleware/rateLimit.js';
 
@@ -39,12 +39,14 @@ beforeEach(() => {
   delete process.env.PORT;
   extractRateLimiter.reset();
   setRetryDelayForTesting(0);
+  setRateLimitDelayForTesting(0);
 });
 
 // Cleanup runs even if assertions fail, without deleting a developer's real key.
 afterEach(() => {
   globalThis.fetch = realFetch;
   setRetryDelayForTesting(null);
+  setRateLimitDelayForTesting(null);
   for (const [key, value] of Object.entries(originalEnvironment)) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
@@ -576,6 +578,72 @@ test('retry: stops at maximum 2 attempts and returns correct final error', async
   assert.deepEqual(modelsUsed, ['google/gemma-4-26b-a4b-it:free', 'google/gemma-4-31b-it:free']);
   assert.equal(modelsUsed.length, 2);
   assert.ok(!modelsUsed.includes('openrouter/free'));
+  mocked.mock.restore();
+});
+
+test('rate-limit: attempt 1 returns 429, attempt 2 succeeds -> returns result, uses Gemma 31B on retry', async () => {
+  const modelsUsed = [];
+  const mocked = mock.method(globalThis, 'fetch', async (url, options) => {
+    const payload = JSON.parse(options.body);
+    modelsUsed.push(payload.model);
+    if (modelsUsed.length === 1) {
+      return { ok: false, status: 429, text: async () => JSON.stringify({ error: { message: 'temporarily rate-limited upstream', code: 429 } }), body: { cancel: async () => {} } };
+    }
+    return { ok: true, status: 200, text: async () => JSON.stringify(fakeReply(JSON.stringify(receipt))) };
+  });
+  const result = await extractReceipt(JPEG, 'image/jpeg', 'ETB');
+  assert.deepEqual(result, normalized);
+  assert.deepEqual(modelsUsed, ['google/gemma-4-26b-a4b-it:free', 'google/gemma-4-31b-it:free']);
+  assert.equal(mocked.mock.callCount(), 2);
+  mocked.mock.restore();
+});
+
+test('rate-limit: both models return 429 -> throws RATE_LIMITED with user-friendly message', async () => {
+  const modelsUsed = [];
+  const mocked = mock.method(globalThis, 'fetch', async (url, options) => {
+    const payload = JSON.parse(options.body);
+    modelsUsed.push(payload.model);
+    return { ok: false, status: 429, text: async () => JSON.stringify({ error: { message: 'temporarily rate-limited upstream', code: 429 } }), body: { cancel: async () => {} } };
+  });
+  await assert.rejects(
+    () => extractReceipt(JPEG, 'image/jpeg', 'ETB'),
+    (err) => {
+      assert.equal(err.code, 'RATE_LIMITED');
+      assert.match(err.message, /temporarily busy/i);
+      return true;
+    },
+  );
+  assert.deepEqual(modelsUsed, ['google/gemma-4-26b-a4b-it:free', 'google/gemma-4-31b-it:free']);
+  assert.equal(mocked.mock.callCount(), 2);
+  mocked.mock.restore();
+});
+
+test('rate-limit: non-429 provider failure (502) still throws PROVIDER_ERROR not RATE_LIMITED', async () => {
+  const mocked = mock.method(globalThis, 'fetch', async () => {
+    return { ok: false, status: 502, text: async () => 'Bad Gateway', body: { cancel: async () => {} } };
+  });
+  await assert.rejects(
+    () => extractReceipt(JPEG, 'image/jpeg', 'ETB'),
+    (err) => {
+      assert.equal(err.code, 'PROVIDER_ERROR');
+      return true;
+    },
+  );
+  mocked.mock.restore();
+});
+
+test('rate-limit: 429 response does not expose OpenRouter internals to caller message', async () => {
+  const mocked = mock.method(globalThis, 'fetch', async () => {
+    return { ok: false, status: 429, text: async () => JSON.stringify({ error: { message: 'internal-provider-detail-xyz', code: 429 } }), body: { cancel: async () => {} } };
+  });
+  await assert.rejects(
+    () => extractReceipt(JPEG, 'image/jpeg', 'ETB'),
+    (err) => {
+      assert.equal(err.code, 'RATE_LIMITED');
+      assert.ok(!err.message.includes('internal-provider-detail-xyz'), 'Provider internals must not appear in client-facing message');
+      return true;
+    },
+  );
   mocked.mock.restore();
 });
 
