@@ -6,7 +6,7 @@ create table bills (
   share_code     text not null unique,
   status         text not null default 'finalized' check (status in ('finalized')),
   restaurant_name text not null default '',
-  currency       text not null check (currency in ('ETB', 'USD')),
+  currency       text not null check (currency in ('ETB', 'USD', 'EUR', 'GBP', 'CAD', 'AUD')),
   -- Canonical bill payload written once by the server after recalculation.
   -- Items, people and assignments are consumed as a whole document.
   bill           jsonb not null,

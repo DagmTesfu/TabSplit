@@ -177,6 +177,26 @@ export default function ScanPage() {
     setScanError(null);
   };
 
+  const handleManualEntry = () => {
+    if (isScanning) return;
+    clearSessionData();
+    const manualReceipt = {
+      restaurantName: '',
+      currency,
+      items: [
+        { id: `item-${Date.now()}-1`, name: '', quantity: 1, priceMinor: 0 },
+      ],
+      taxMinor: 0,
+      taxInclusive: false,
+      tipMinor: 0,
+      additionalCharges: [],
+      printedTotalMinor: null,
+      totalMinor: 0,
+    };
+    updateSessionData({ receipt: manualReceipt, people: [], assignments: {} });
+    navigate('/review', { state: { receipt: manualReceipt } });
+  };
+
   return (
     <div className="page">
       {/* Page Header */}
@@ -205,8 +225,12 @@ export default function ScanPage() {
             cursor: isScanning ? 'not-allowed' : 'pointer',
           }}
         >
-          <option value="ETB">ETB — Ethiopian Birr</option>
-          <option value="USD">USD — US Dollar</option>
+          <option value="ETB">ETB — Ethiopian Birr (ETB)</option>
+          <option value="USD">USD — US Dollar ($)</option>
+          <option value="EUR">EUR — Euro (€)</option>
+          <option value="GBP">GBP — British Pound (£)</option>
+          <option value="CAD">CAD — Canadian Dollar (CA$)</option>
+          <option value="AUD">AUD — Australian Dollar (A$)</option>
         </select>
       </div>
 
@@ -278,6 +302,31 @@ export default function ScanPage() {
                 <span>🖼️</span> Choose gallery
               </button>
             </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', margin: '18px 0 12px', gap: '10px' }}>
+              <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--color-border)' }} />
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>or</span>
+              <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--color-border)' }} />
+            </div>
+
+            <button
+              type="button"
+              onClick={handleManualEntry}
+              disabled={isScanning}
+              className="btn-secondary"
+              style={{
+                width: '100%',
+                minHeight: '44px',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+                gap: 8,
+                backgroundColor: 'var(--color-surface-subtle)',
+                border: '1.5px dashed var(--color-border)',
+                color: 'var(--color-primary)',
+              }}
+            >
+              <span>✏️</span> Enter items manually without receipt
+            </button>
           </div>
         </div>
       )}

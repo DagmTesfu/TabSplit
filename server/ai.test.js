@@ -104,11 +104,15 @@ test('signatures: JPEG, PNG, WebP supported; HEIC and non-images rejected', () =
   }
 });
 
-test('currency: ETB and USD supported, missing/unsupported rejected with stable code', () => {
+test('currency: ETB, USD, EUR, GBP, CAD, AUD supported, missing/unsupported rejected with stable code', () => {
   assert.deepEqual(assertSupportedCurrency('ETB'), { code: 'ETB', minorUnits: 2 });
   assert.deepEqual(assertSupportedCurrency('usd'), { code: 'USD', minorUnits: 2 });
   assert.deepEqual(assertSupportedCurrency(' USD '), { code: 'USD', minorUnits: 2 });
-  for (const bad of [undefined, null, '', '  ', 'us', 'USDT', 'eur', 'EUR', 'GBP', 840, {}, ['USD']]) {
+  assert.deepEqual(assertSupportedCurrency('EUR'), { code: 'EUR', minorUnits: 2 });
+  assert.deepEqual(assertSupportedCurrency('gbp'), { code: 'GBP', minorUnits: 2 });
+  assert.deepEqual(assertSupportedCurrency('CAD'), { code: 'CAD', minorUnits: 2 });
+  assert.deepEqual(assertSupportedCurrency('aud'), { code: 'AUD', minorUnits: 2 });
+  for (const bad of [undefined, null, '', '  ', 'us', 'USDT', 'jpy', 'JPY', 'CHF', 840, {}, ['USD']]) {
     assert.throws(() => assertSupportedCurrency(bad), (error) => error instanceof AiError && error.code === 'INVALID_CURRENCY');
   }
 });
@@ -390,7 +394,7 @@ test('extraction: missing credentials produce NOT_CONFIGURED', async () => {
 
 test('extraction: invalid currency is rejected before any image or provider work', async () => {
   const mocked = provider();
-  await assert.rejects(() => extractReceipt(JPEG, 'image/jpeg', 'EUR'), { code: 'INVALID_CURRENCY' });
+  await assert.rejects(() => extractReceipt(JPEG, 'image/jpeg', 'JPY'), { code: 'INVALID_CURRENCY' });
   await assert.rejects(() => extractReceipt(JPEG, 'image/jpeg', ''), { code: 'INVALID_CURRENCY' });
   await assert.rejects(() => extractReceipt(JPEG, 'image/jpeg', undefined), { code: 'INVALID_CURRENCY' });
   assert.equal(mocked.mock.callCount(), 0);
@@ -779,7 +783,7 @@ test('route: USD request echoes server-validated currency and minor units', asyn
 test('route: unsupported and missing currency rejected before any provider call', async () => {
   const mocked = provider();
   await withServer(async (base) => {
-    for (const form of [uploadForm({ currency: 'EUR' }), uploadForm({ currency: 'usdt' }), uploadForm({ currency: null })]) {
+    for (const form of [uploadForm({ currency: 'JPY' }), uploadForm({ currency: 'usdt' }), uploadForm({ currency: null })]) {
       const res = await post(base, form);
       assert.equal(res.status, 400);
       const body = await res.json();

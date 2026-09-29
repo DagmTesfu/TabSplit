@@ -5,6 +5,10 @@ import { getAvatarColor, getInitials } from '../avatarColors';
 
 function currencySymbol(currency) {
   if (currency === 'USD') return '$';
+  if (currency === 'EUR') return '€';
+  if (currency === 'GBP') return '£';
+  if (currency === 'CAD') return 'CA$';
+  if (currency === 'AUD') return 'A$';
   if (currency === 'ETB') return 'ETB ';
   return `${currency} `;
 }

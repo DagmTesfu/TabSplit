@@ -155,7 +155,7 @@ test('route: POST /api/bills rejects invalid bills with 400 and stable codes', a
     setBillDbForTesting(fake);
     const cases = [
       [{ ...validBody, items: validBody.items.map((item) => ({ ...item, assignedTo: [] })) }, 'UNASSIGNED_ITEMS'],
-      [{ ...validBody, currency: 'GBP' }, 'INVALID_CURRENCY'],
+      [{ ...validBody, currency: 'JPY' }, 'INVALID_CURRENCY'],
       [{ ...validBody, items: [{ ...validBody.items[0], priceMinor: -5 }] }, 'INVALID_BILL'],
       ['{broken json', 'INVALID_JSON'],
     ];

@@ -19,6 +19,10 @@ export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const SUPPORTED_CURRENCIES = {
   ETB: { minorUnits: 2 },
   USD: { minorUnits: 2 },
+  EUR: { minorUnits: 2 },
+  GBP: { minorUnits: 2 },
+  CAD: { minorUnits: 2 },
+  AUD: { minorUnits: 2 },
 };
 
 export class AiError extends Error {

@@ -104,7 +104,7 @@ test('validation: rejects structurally invalid bills', () => {
     );
   }
   // Currency-specific rejections keep the extraction error contract.
-  for (const data of [{ ...base, currency: 'GBP' }, { ...base, currency: '' }]) {
+  for (const data of [{ ...base, currency: 'JPY' }, { ...base, currency: '' }]) {
     assert.throws(() => validateBillRequest(data), (error) => error.code === 'INVALID_CURRENCY');
   }
 });
