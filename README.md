@@ -15,17 +15,13 @@ Scan → Review → Add People → Assign → Share
 ✏️ Review and correct anything the AI got wrong
 👥 Add the people sharing the bill
 🍕 Assign each item to one or more people
-🧮 Automatically calculate each person's share
+🧮 Automatically calculate each person’s share
 🔗 Generate a shareable link
 📱 Friends can open the link on their phones without creating an account
 
 The app currently supports ETB and USD.
 
 Screenshots
-
-Add your screenshots here.
-
-## Screenshots
 
 ### Landing Page
 
@@ -57,7 +53,6 @@ Add your screenshots here.
 <p align="center">
   <img src="images/sh.png" width="240">
 </p>
-
 
 Live Demo
 
@@ -95,34 +90,34 @@ Architecture
 
 TabSplit uses a simple client-server architecture where the frontend never communicates directly with Gemini or Supabase.
 
-                    ┌──────────────────────┐
-                    │       User           │
-                    │  Phone / Desktop     │
-                    └──────────┬───────────┘
-                               │
-                               ▼
-                    ┌──────────────────────┐
-                    │   React + Vite       │
-                    │      Frontend        │
-                    │       Vercel         │
-                    └──────────┬───────────┘
-                               │
-                         REST API
-                               │
-                               ▼
-                    ┌──────────────────────┐
-                    │   Node + Express     │
-                    │       Backend        │
-                    │       Render         │
-                    └───────┬───────┬──────┘
-                            │       │
-                    Receipt │       │ Finalized
-                     Image  │       │ Bill
-                            ▼       ▼
-                  ┌────────────┐ ┌──────────────┐
-                  │   Gemini   │ │   Supabase   │
-                  │    Vision  │ │ PostgreSQL   │
-                  └────────────┘ └──────────────┘
+                ┌──────────────────────┐
+                │       User           │
+                │  Phone / Desktop     │
+                └──────────┬───────────┘
+                           │
+                           ▼
+                ┌──────────────────────┐
+                │   React + Vite       │
+                │      Frontend        │
+                │       Vercel         │
+                └──────────┬───────────┘
+                           │
+                     REST API
+                           │
+                           ▼
+                ┌──────────────────────┐
+                │   Node + Express     │
+                │       Backend        │
+                │       Render         │
+                └───────┬───────┬──────┘
+                        │       │
+                Receipt │       │ Finalized
+                 Image  │       │ Bill
+                        ▼       ▼
+              ┌────────────┐ ┌──────────────┐
+              │   Gemini   │ │   Supabase   │
+              │    Vision  │ │ PostgreSQL   │
+              └────────────┘ └──────────────┘
 Why this architecture?
 
 The backend acts as the trusted layer between the user and external services.
@@ -135,37 +130,37 @@ Finalized bills are stored as the source of truth.
 Shared bills can be accessed through a unique share code without requiring authentication.
 How AI Receipt Extraction Works
 
-TabSplit uses Gemini's vision capabilities to read receipt images.
+TabSplit uses Gemini’s vision capabilities to read receipt images.
 
 The process looks like this:
 
 Receipt Image
-     │
-     ▼
+│
+▼
 Frontend
-     │
-     │ image + selected currency
-     ▼
+│
+│ image + selected currency
+▼
 Express Backend
-     │
-     │ validate image
-     │ validate currency
-     ▼
+│
+│ validate image
+│ validate currency
+▼
 Gemini Vision API
-     │
-     │ structured receipt data
-     ▼
+│
+│ structured receipt data
+▼
 Express Backend
-     │
-     │ validate AI response
-     ▼
+│
+│ validate AI response
+▼
 Receipt Review Screen
-     │
-     │ human correction
-     ▼
+│
+│ human correction
+▼
 Final Bill
-1. User selects the currency
 
+User selects the currency
 Before scanning, the user selects the receipt currency, currently:
 
 ETB
@@ -173,8 +168,7 @@ USD
 
 The selected currency is sent to the backend along with the image.
 
-2. Backend validates the image
-
+Backend validates the image
 The backend checks:
 
 File type
@@ -184,29 +178,27 @@ Request limits
 
 The API key is kept entirely on the server.
 
-3. Gemini reads the receipt
-
+Gemini reads the receipt
 The image is sent to Gemini with instructions to extract structured information such as:
 
 {
-  "restaurantName": "Example Restaurant",
-  "currency": "ETB",
-  "items": [
-    {
-      "name": "Pizza",
-      "priceMinor": 60000
-    }
-  ],
-  "taxMinor": 0,
-  "printedTotalMinor": 60000
+“restaurantName”: “Example Restaurant”,
+“currency”: “ETB”,
+“items”: [
+{
+“name”: “Pizza”,
+“priceMinor”: 60000
+}
+],
+“taxMinor”: 0,
+“printedTotalMinor”: 60000
 }
 
-The AI is not responsible for calculating people's shares.
+The AI is not responsible for calculating people’s shares.
 
 It only reads information from the receipt.
 
-4. The user reviews the result
-
+The user reviews the result
 AI extraction is never treated as automatically correct.
 
 The user can:
