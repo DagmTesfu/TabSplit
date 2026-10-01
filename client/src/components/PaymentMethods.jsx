@@ -246,7 +246,7 @@ export default function PaymentMethods({
                   }}
                 >
                   <div style={{ marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <BankLogo bankId={bank.id} size={30} />
+                    <BankLogo bankId={bank.id} size={34} />
                   </div>
                   <span
                     style={{
@@ -289,7 +289,7 @@ export default function PaymentMethods({
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <BankLogo bankId={activeBank.id} size={24} />
+                <BankLogo bankId={activeBank.id} size={30} />
                 <span style={{ fontSize: '0.85rem', fontWeight: 800, color: activeBank.color }}>
                   {activeBank.label}
                 </span>
