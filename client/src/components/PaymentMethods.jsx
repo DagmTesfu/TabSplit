@@ -8,6 +8,7 @@ import {
   getHostPaymentAccounts,
   saveHostPaymentAccounts,
 } from '../storage';
+import { BankLogo } from './BankLogos';
 
 export default function PaymentMethods({
   accounts: initialAccounts,
@@ -147,8 +148,9 @@ export default function PaymentMethods({
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: 2, color: BANK_CONFIG.telebirr.color }}>
-              📱 Telebirr Phone Number
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 700, marginBottom: 4, color: BANK_CONFIG.telebirr.color }}>
+              <BankLogo bankId="telebirr" size={18} />
+              <span>Telebirr Phone Number</span>
             </label>
             <input
               type="text"
@@ -160,8 +162,9 @@ export default function PaymentMethods({
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: 2, color: BANK_CONFIG.cbe.color }}>
-              🏦 CBE (Commercial Bank of Ethiopia) Account
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 700, marginBottom: 4, color: BANK_CONFIG.cbe.color }}>
+              <BankLogo bankId="cbe" size={18} />
+              <span>CBE (Commercial Bank of Ethiopia) Account</span>
             </label>
             <input
               type="text"
@@ -173,8 +176,9 @@ export default function PaymentMethods({
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: 2, color: BANK_CONFIG.awash.color }}>
-              🏢 Awash Bank Account
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 700, marginBottom: 4, color: BANK_CONFIG.awash.color }}>
+              <BankLogo bankId="awash" size={18} />
+              <span>Awash Bank Account</span>
             </label>
             <input
               type="text"
@@ -186,8 +190,9 @@ export default function PaymentMethods({
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: 2, color: BANK_CONFIG.abyssinia.color }}>
-              🏛️ Bank of Abyssinia (BoA) Account
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 700, marginBottom: 4, color: BANK_CONFIG.abyssinia.color }}>
+              <BankLogo bankId="abyssinia" size={18} />
+              <span>Bank of Abyssinia (BoA) Account</span>
             </label>
             <input
               type="text"
@@ -208,7 +213,7 @@ export default function PaymentMethods({
         </form>
       ) : (
         <div>
-          {/* Bank Selection Tabs (Medium icon badges) */}
+          {/* Bank Selection Tabs (Real vector logos) */}
           <div
             style={{
               display: 'grid',
@@ -240,7 +245,9 @@ export default function PaymentMethods({
                     position: 'relative',
                   }}
                 >
-                  <span style={{ fontSize: '1.25rem', marginBottom: 2 }}>{bank.iconText}</span>
+                  <div style={{ marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <BankLogo bankId={bank.id} size={30} />
+                  </div>
                   <span
                     style={{
                       fontSize: '0.72rem',
@@ -280,10 +287,13 @@ export default function PaymentMethods({
               padding: '12px 14px',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 800, color: activeBank.color }}>
-                {activeBank.label}
-              </span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <BankLogo bankId={activeBank.id} size={24} />
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: activeBank.color }}>
+                  {activeBank.label}
+                </span>
+              </div>
               {accounts.accountName && (
                 <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>
                   Name: {accounts.accountName}
