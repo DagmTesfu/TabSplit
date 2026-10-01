@@ -36,8 +36,15 @@ export default function PaymentMethods({
   const [copiedKey, setCopiedKey] = useState(null);
   const [editForm, setEditForm] = useState(accounts);
 
-  const activeBank = BANK_CONFIG[activeBankId] || BANK_CONFIG.telebirr;
-  const currentNumber = accounts[activeBankId] || '';
+  const configuredBanks = Object.values(BANK_CONFIG).filter((b) => Boolean(accounts[b.id]));
+  const visibleBanks = isHost ? Object.values(BANK_CONFIG) : configuredBanks;
+
+  const effectiveActiveBankId = (!isHost && !configuredBanks.some((b) => b.id === activeBankId))
+    ? (configuredBanks[0]?.id || 'telebirr')
+    : activeBankId;
+
+  const activeBank = BANK_CONFIG[effectiveActiveBankId] || BANK_CONFIG.telebirr;
+  const currentNumber = accounts[effectiveActiveBankId] || '';
   const isMobile = isMobileDevice();
 
   const handleCopy = async (val, key) => {
@@ -213,70 +220,72 @@ export default function PaymentMethods({
         </form>
       ) : (
         <div>
-          {/* Bank Selection Tabs (Real vector logos) */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: 6,
-              marginBottom: 12,
-            }}
-          >
-            {Object.values(BANK_CONFIG).map((bank) => {
-              const isSelected = activeBankId === bank.id;
-              const hasNum = Boolean(accounts[bank.id]);
+          {/* Bank Selection Tabs (Only shown if multiple choices available) */}
+          {visibleBanks.length > 1 && (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${visibleBanks.length}, 1fr)`,
+                gap: 6,
+                marginBottom: 12,
+              }}
+            >
+              {visibleBanks.map((bank) => {
+                const isSelected = effectiveActiveBankId === bank.id;
+                const hasNum = Boolean(accounts[bank.id]);
 
-              return (
-                <button
-                  key={bank.id}
-                  type="button"
-                  onClick={() => setActiveBankId(bank.id)}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '8px 4px',
-                    borderRadius: 'var(--radius-sm)',
-                    border: isSelected ? `2px solid ${bank.color}` : '1.5px solid var(--color-border)',
-                    backgroundColor: isSelected ? bank.bgColor : '#ffffff',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    position: 'relative',
-                  }}
-                >
-                  <div style={{ marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <BankLogo bankId={bank.id} size={34} />
-                  </div>
-                  <span
+                return (
+                  <button
+                    key={bank.id}
+                    type="button"
+                    onClick={() => setActiveBankId(bank.id)}
                     style={{
-                      fontSize: '0.72rem',
-                      fontWeight: 800,
-                      color: isSelected ? bank.color : 'var(--color-text)',
-                      textAlign: 'center',
-                      lineHeight: 1.1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '8px 4px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: isSelected ? `2px solid ${bank.color}` : '1.5px solid var(--color-border)',
+                      backgroundColor: isSelected ? bank.bgColor : '#ffffff',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      position: 'relative',
                     }}
                   >
-                    {bank.badgeText}
-                  </span>
-                  {hasNum && (
+                    <div style={{ marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <BankLogo bankId={bank.id} size={34} />
+                    </div>
                     <span
                       style={{
-                        position: 'absolute',
-                        top: 2,
-                        right: 2,
-                        width: '6px',
-                        height: '6px',
-                        borderRadius: '50%',
-                        backgroundColor: '#10b981',
+                        fontSize: '0.72rem',
+                        fontWeight: 800,
+                        color: isSelected ? bank.color : 'var(--color-text)',
+                        textAlign: 'center',
+                        lineHeight: 1.1,
                       }}
-                      title="Configured"
-                    />
-                  )}
-                </button>
-              );
-            })}
-          </div>
+                    >
+                      {bank.badgeText}
+                    </span>
+                    {hasNum && (
+                      <span
+                        style={{
+                          position: 'absolute',
+                          top: 2,
+                          right: 2,
+                          width: '6px',
+                          height: '6px',
+                          borderRadius: '50%',
+                          backgroundColor: '#10b981',
+                        }}
+                        title="Configured"
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Active Bank Detail Box */}
           <div
