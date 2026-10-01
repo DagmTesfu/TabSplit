@@ -73,6 +73,10 @@ export default function PaymentMethods({
     accounts.telebirr || accounts.cbe || accounts.awash || accounts.abyssinia
   );
 
+  if (!isHost && !hasAnyAccount) {
+    return null;
+  }
+
   return (
     <div
       style={{
@@ -100,25 +104,27 @@ export default function PaymentMethods({
           </span>
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            setEditForm(accounts);
-            setIsEditing((prev) => !prev);
-          }}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--color-primary)',
-            fontSize: '0.78rem',
-            fontWeight: 700,
-            cursor: 'pointer',
-            padding: 0,
-            textDecoration: 'underline',
-          }}
-        >
-          {isEditing ? 'Cancel' : (hasAnyAccount ? 'Edit Accounts' : '+ Setup Accounts')}
-        </button>
+        {isHost && (
+          <button
+            type="button"
+            onClick={() => {
+              setEditForm(accounts);
+              setIsEditing((prev) => !prev);
+            }}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--color-primary)',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              padding: 0,
+              textDecoration: 'underline',
+            }}
+          >
+            {isEditing ? 'Cancel' : (hasAnyAccount ? 'Edit Accounts' : '+ Setup Accounts')}
+          </button>
+        )}
       </div>
 
       {isEditing ? (
@@ -354,27 +360,30 @@ export default function PaymentMethods({
               </div>
             ) : (
               <div style={{ textAlign: 'center', padding: '6px 0' }}>
-                <p style={{ margin: '0 0 6px', fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>
-                  Host has not set up a {activeBank.name} account yet.
+                <p style={{ margin: '0', fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>
+                  Host has not set up a {activeBank.name} account.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditForm(accounts);
-                    setIsEditing(true);
-                  }}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: activeBank.color,
-                    fontSize: '0.78rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    textDecoration: 'underline',
-                  }}
-                >
-                  Are you the host? Add your {activeBank.name} account →
-                </button>
+                {isHost && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditForm(accounts);
+                      setIsEditing(true);
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: activeBank.color,
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      textDecoration: 'underline',
+                      marginTop: 6,
+                    }}
+                  >
+                    Add your {activeBank.name} account →
+                  </button>
+                )}
               </div>
             )}
           </div>

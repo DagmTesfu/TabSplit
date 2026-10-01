@@ -13,6 +13,7 @@ import {
   saveHostPaymentAccounts,
   getPaidStatus,
   setPersonPaidStatus,
+  isBillHost,
 } from './storage.js';
 
 describe('Local Personalization and Storage', () => {
@@ -133,5 +134,19 @@ describe('Local Personalization and Storage', () => {
 
     // Other bills remain unaffected
     assert.deepEqual(getPaidStatus('bill999'), {});
+  });
+
+  it('7. isBillHost distinguishes bills created on this device from viewed bills', () => {
+    assert.equal(isBillHost('created123'), false);
+
+    saveBillToHistory({ shareCode: 'created123', role: 'created' });
+    assert.equal(isBillHost('created123'), true);
+
+    // Re-saving as viewed must preserve role: 'created'
+    saveBillToHistory({ shareCode: 'created123', role: 'viewed' });
+    assert.equal(isBillHost('created123'), true);
+
+    saveBillToHistory({ shareCode: 'viewed456', role: 'viewed' });
+    assert.equal(isBillHost('viewed456'), false);
   });
 });

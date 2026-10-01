@@ -107,14 +107,19 @@ export function saveBillToHistory(billInfo) {
   if (!billInfo || !billInfo.shareCode) return;
   try {
     const history = getBillHistory();
+    const code = String(billInfo.shareCode).trim();
+    const existing = history.find((b) => b.shareCode === code);
+    // If the bill was created by this user/device, keep role as 'created'
+    const role = (existing && existing.role === 'created') ? 'created' : (billInfo.role === 'created' ? 'created' : 'viewed');
+
     const entry = {
-      shareCode: String(billInfo.shareCode).trim(),
+      shareCode: code,
       restaurantName: String(billInfo.restaurantName || '').trim() || 'Receipt Split',
       currency: String(billInfo.currency || 'USD').trim(),
       totalMinor: typeof billInfo.totalMinor === 'number' ? billInfo.totalMinor : 0,
       participantCount: typeof billInfo.participantCount === 'number' ? billInfo.participantCount : 0,
       createdAt: typeof billInfo.createdAt === 'number' ? billInfo.createdAt : Date.now(),
-      role: billInfo.role === 'created' ? 'created' : 'viewed',
+      role,
     };
 
     // Remove existing entry with the same shareCode to move it to the top
@@ -122,6 +127,17 @@ export function saveBillToHistory(billInfo) {
     const updated = [entry, ...filtered].slice(0, 10);
     setStoreItem(BILL_HISTORY_KEY, JSON.stringify(updated));
   } catch {}
+}
+
+export function isBillHost(shareCode) {
+  if (!shareCode) return false;
+  try {
+    const history = getBillHistory();
+    const found = history.find((b) => b.shareCode === String(shareCode).trim());
+    return found ? found.role === 'created' : false;
+  } catch {
+    return false;
+  }
 }
 
 export function removeBillFromHistory(shareCode) {

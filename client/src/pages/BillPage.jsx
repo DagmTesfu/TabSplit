@@ -9,6 +9,7 @@ import {
   getHostPaymentAccounts,
   getPaidStatus,
   setPersonPaidStatus,
+  isBillHost,
 } from '../storage';
 import { decodePaymentHash } from '../paymentAccounts';
 import PaymentMethods from '../components/PaymentMethods';
@@ -207,6 +208,7 @@ export default function BillPage() {
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
+  const isHost = isBillHost(shareCode);
   const paidCount = peopleTotals.filter((p) => paidMap[p.id]).length;
 
   return (
@@ -340,53 +342,55 @@ export default function BillPage() {
             <span>{expandedPersonId === myPerson.id ? '▲ Hide' : '▼ View'} your dish breakdown</span>
           </button>
 
-          {/* Quick Mark-as-Paid Toggle for User */}
-          <div
-            style={{
-              marginTop: 10,
-              padding: '8px 12px',
-              backgroundColor: paidMap[myPerson.id] ? '#dcfce7' : '#ffffff',
-              border: `1.5px solid ${paidMap[myPerson.id] ? '#86efac' : '#bbf7d0'}`,
-              borderRadius: 'var(--radius-sm)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: 8,
-              flexWrap: 'wrap',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: '0.9rem' }}>{paidMap[myPerson.id] ? '✅' : '⏳'}</span>
-              <span
-                style={{
-                  fontSize: '0.82rem',
-                  fontWeight: 700,
-                  color: paidMap[myPerson.id] ? '#166534' : 'var(--color-text)',
-                }}
-              >
-                {paidMap[myPerson.id] ? "You've marked your share as paid!" : 'Have you paid your share?'}
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={(e) => handleTogglePaid(myPerson.id, e)}
+          {/* Quick Mark-as-Paid Toggle for Host */}
+          {isHost && (
+            <div
               style={{
-                backgroundColor: paidMap[myPerson.id] ? '#166534' : 'var(--color-primary)',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '14px',
-                padding: '5px 12px',
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
-                transition: 'all 0.15s ease',
+                marginTop: 10,
+                padding: '8px 12px',
+                backgroundColor: paidMap[myPerson.id] ? '#dcfce7' : '#ffffff',
+                border: `1.5px solid ${paidMap[myPerson.id] ? '#86efac' : '#bbf7d0'}`,
+                borderRadius: 'var(--radius-sm)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 8,
+                flexWrap: 'wrap',
               }}
             >
-              {paidMap[myPerson.id] ? '✓ Paid (Undo)' : 'I Already Paid'}
-            </button>
-          </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: '0.9rem' }}>{paidMap[myPerson.id] ? '✅' : '⏳'}</span>
+                <span
+                  style={{
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    color: paidMap[myPerson.id] ? '#166534' : 'var(--color-text)',
+                  }}
+                >
+                  {paidMap[myPerson.id] ? "You've marked your share as paid!" : 'Have you paid your share?'}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={(e) => handleTogglePaid(myPerson.id, e)}
+                style={{
+                  backgroundColor: paidMap[myPerson.id] ? '#166534' : 'var(--color-primary)',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '14px',
+                  padding: '5px 12px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {paidMap[myPerson.id] ? '✓ Paid (Undo)' : 'I Already Paid'}
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         peopleTotals.length > 0 && (
@@ -434,6 +438,7 @@ export default function BillPage() {
       <PaymentMethods
         accounts={paymentAccounts}
         onAccountsChange={setPaymentAccounts}
+        isHost={isHost}
         restaurantName={restaurantName}
       />
 
@@ -463,8 +468,8 @@ export default function BillPage() {
           <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Tap name to view breakdown</span>
         </div>
 
-        {/* Settlement Progress Tracker */}
-        {peopleTotals.length > 0 && (
+        {/* Settlement Progress Tracker (Host only) */}
+        {isHost && peopleTotals.length > 0 && (
           <div
             style={{
               marginBottom: 12,
@@ -584,51 +589,55 @@ export default function BillPage() {
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePersonWhatsAppShare(person);
-                      }}
-                      title={`Share via WhatsApp to ${person.name}`}
-                      style={{
-                        background: '#25D366',
-                        border: 'none',
-                        color: '#ffffff',
-                        padding: '4px 7px',
-                        borderRadius: '6px',
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 3,
-                      }}
-                    >
-                      <span>💬</span>
-                      <span>Share</span>
-                    </button>
+                    {isHost && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePersonWhatsAppShare(person);
+                        }}
+                        title={`Share via WhatsApp to ${person.name}`}
+                        style={{
+                          background: '#25D366',
+                          border: 'none',
+                          color: '#ffffff',
+                          padding: '4px 7px',
+                          borderRadius: '6px',
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 3,
+                        }}
+                      >
+                        <span>💬</span>
+                        <span>Share</span>
+                      </button>
+                    )}
 
-                    <button
-                      type="button"
-                      onClick={(e) => handleTogglePaid(person.id, e)}
-                      title="Toggle paid status"
-                      style={{
-                        background: paidMap[person.id] ? '#dcfce7' : '#f8fafc',
-                        border: `1.5px solid ${paidMap[person.id] ? '#86efac' : '#cbd5e1'}`,
-                        color: paidMap[person.id] ? '#166534' : '#64748b',
-                        padding: '4px 7px',
-                        borderRadius: '6px',
-                        fontSize: '0.72rem',
-                        fontWeight: 800,
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 2,
-                      }}
-                    >
-                      <span>{paidMap[person.id] ? '✓ Paid' : 'Unpaid'}</span>
-                    </button>
+                    {isHost && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleTogglePaid(person.id, e)}
+                        title="Toggle paid status"
+                        style={{
+                          background: paidMap[person.id] ? '#dcfce7' : '#f8fafc',
+                          border: `1.5px solid ${paidMap[person.id] ? '#86efac' : '#cbd5e1'}`,
+                          color: paidMap[person.id] ? '#166534' : '#64748b',
+                          padding: '4px 7px',
+                          borderRadius: '6px',
+                          fontSize: '0.72rem',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 2,
+                        }}
+                      >
+                        <span>{paidMap[person.id] ? '✓ Paid' : 'Unpaid'}</span>
+                      </button>
+                    )}
 
                     <span style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--color-primary)', marginLeft: 2 }}>
                       {formatAmount(person.totalMinor, currency)}
