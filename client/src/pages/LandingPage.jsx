@@ -1,11 +1,48 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { getBillHistory, removeBillFromHistory } from '../storage';
+
+function currencySymbol(currency) {
+  if (currency === 'USD') return '$';
+  if (currency === 'EUR') return '€';
+  if (currency === 'GBP') return '£';
+  if (currency === 'CAD') return 'CA$';
+  if (currency === 'AUD') return 'A$';
+  if (currency === 'ETB') return 'ETB ';
+  return `${currency} `;
+}
+
+function formatAmount(priceMinor, currency) {
+  const minorUnits = 2;
+  const absMinor = Math.abs(priceMinor || 0);
+  const major = Math.floor(absMinor / 10 ** minorUnits);
+  const minor = absMinor % 10 ** minorUnits;
+  const formatted = `${major}.${String(minor).padStart(minorUnits, '0')}`;
+  const sym = currencySymbol(currency);
+  return `${sym}${formatted}`;
+}
+
+function formatDate(timestamp) {
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
 
 export default function LandingPage() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [platform, setPlatform] = useState('other'); // 'ios' | 'android' | 'desktop' | 'other'
+  const [recentBills, setRecentBills] = useState(() => getBillHistory());
+
+  const handleDeleteHistoryBill = (shareCode) => {
+    removeBillFromHistory(shareCode);
+    setRecentBills((prev) => prev.filter((b) => b.shareCode !== shareCode));
+  };
 
   useEffect(() => {
     // Check if already running in standalone mode (installed PWA)
@@ -98,6 +135,109 @@ export default function LandingPage() {
           Snap the receipt. We handle the math nobody wants to do.
         </p>
       </div>
+
+      {/* Recent Bills Card (if any bills stored locally) */}
+      {recentBills.length > 0 && (
+        <div
+          style={{
+            maxWidth: '340px',
+            width: '100%',
+            margin: '0 auto 18px',
+            backgroundColor: '#ffffff',
+            border: '1.5px solid var(--color-border)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '14px 16px',
+            boxShadow: 'var(--shadow-sm)',
+            textAlign: 'left',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <span
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                color: 'var(--color-primary)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+              }}
+            >
+              <span>📋</span> Recent Bills
+            </span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
+              On this phone
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {recentBills.slice(0, 3).map((item) => (
+              <div
+                key={item.shareCode}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '9px 12px',
+                  backgroundColor: 'var(--color-surface-subtle)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--color-border)',
+                  gap: 10,
+                }}
+              >
+                <Link
+                  to={`/b/${item.shareCode}`}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    textDecoration: 'none',
+                    color: 'inherit',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      fontSize: '0.85rem',
+                      color: 'var(--color-text)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {item.restaurantName || 'Receipt Split'}
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
+                    {formatDate(item.createdAt)} · {item.participantCount} {item.participantCount === 1 ? 'person' : 'people'}
+                  </div>
+                </Link>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                  <span style={{ fontWeight: 800, fontSize: '0.88rem', color: 'var(--color-primary)' }}>
+                    {formatAmount(item.totalMinor, item.currency)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteHistoryBill(item.shareCode)}
+                    title="Remove from history"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--color-text-muted)',
+                      fontSize: '1rem',
+                      cursor: 'pointer',
+                      padding: '2px 4px',
+                      lineHeight: 1,
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Concept C Comparison Card: What a photo can't do */}
       <div

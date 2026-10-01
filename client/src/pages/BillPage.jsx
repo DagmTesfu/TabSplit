@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getBill } from '../api';
 import { getAvatarColor, getInitials } from '../avatarColors';
+import { getMyName, setMyName, saveBillToHistory } from '../storage';
 
 function currencySymbol(currency) {
   if (currency === 'USD') return '$';
@@ -30,6 +31,9 @@ export default function BillPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [expandedPersonId, setExpandedPersonId] = useState(null);
+  const [myName, setMyNameState] = useState(() => getMyName());
+  const [showNameSelector, setShowNameSelector] = useState(false);
+  const [showMathExplainer, setShowMathExplainer] = useState(false);
 
   const fetchBill = useCallback(async () => {
     if (!shareCode) return;
@@ -38,6 +42,20 @@ export default function BillPage() {
     try {
       const data = await getBill(shareCode);
       setBillData(data);
+      if (data) {
+        const b = data.bill || {};
+        const bTotals = b.totals || {};
+        const pList = bTotals.people || b.people || [];
+        saveBillToHistory({
+          shareCode,
+          restaurantName: b.restaurantName || data.restaurantName,
+          currency: b.currency || data.currency || 'USD',
+          totalMinor: bTotals.billTotalMinor ?? 0,
+          participantCount: pList.length,
+          createdAt: data.created_at ? new Date(data.created_at).getTime() : Date.now(),
+          role: 'viewed',
+        });
+      }
     } catch (err) {
       setError(err);
     } finally {
@@ -121,6 +139,23 @@ export default function BillPage() {
   // Map person ID to name for fast lookup
   const peopleMap = new Map((bill.people || []).map((p) => [p.id, p.name]));
 
+  // Personalization: check if user matches a person on this bill
+  const myPerson = myName
+    ? peopleTotals.find((p) => (p.name || '').trim().toLowerCase() === myName.trim().toLowerCase())
+    : null;
+
+  const handleSelectMe = (name) => {
+    setMyName(name);
+    setMyNameState(name);
+    setShowNameSelector(false);
+  };
+
+  const handleClearMe = () => {
+    setMyName('');
+    setMyNameState('');
+    setShowNameSelector(true);
+  };
+
   return (
     <div className="page">
       {/* Header */}
@@ -172,6 +207,127 @@ export default function BillPage() {
           {formatAmount(billTotalMinor, currency)}
         </span>
       </div>
+
+      {/* Personalized Share Card (Remember My Name) */}
+      {myPerson && !showNameSelector ? (
+        <div
+          style={{
+            backgroundColor: '#f0fdf4',
+            border: '1.5px solid #86efac',
+            borderRadius: 'var(--radius-lg)',
+            padding: '16px 18px',
+            marginBottom: 20,
+            boxShadow: '0 2px 8px rgba(22, 101, 52, 0.08)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                color: '#166534',
+                backgroundColor: '#dcfce7',
+                padding: '3px 8px',
+                borderRadius: '12px',
+              }}
+            >
+              👤 Your Share
+            </span>
+            <button
+              type="button"
+              onClick={handleClearMe}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--color-text-muted)',
+                fontSize: '0.78rem',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                padding: 0,
+              }}
+            >
+              Not {myPerson.name}?
+            </button>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 6 }}>
+            <div>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--color-text)' }}>
+                Hey {myPerson.name} 👋
+              </h2>
+              <p style={{ margin: '2px 0 0', fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>
+                Here is your exact calculated total to pay:
+              </p>
+            </div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--color-primary)' }}>
+              {formatAmount(myPerson.totalMinor, currency)}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setExpandedPersonId(expandedPersonId === myPerson.id ? null : myPerson.id)}
+            style={{
+              marginTop: 10,
+              width: '100%',
+              padding: '8px 12px',
+              backgroundColor: '#ffffff',
+              border: '1px solid #bbf7d0',
+              borderRadius: 'var(--radius-sm)',
+              color: '#166534',
+              fontWeight: 700,
+              fontSize: '0.82rem',
+              cursor: 'pointer',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <span>{expandedPersonId === myPerson.id ? '▲ Hide' : '▼ View'} your dish breakdown</span>
+          </button>
+        </div>
+      ) : (
+        peopleTotals.length > 0 && (
+          <div
+            style={{
+              backgroundColor: 'var(--color-surface-subtle)',
+              border: '1px dashed var(--color-border)',
+              borderRadius: 'var(--radius-md)',
+              padding: '12px 14px',
+              marginBottom: 20,
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: 8 }}>
+              👋 Which one is you? Tap your name to see your share:
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+              {peopleTotals.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => handleSelectMe(p.name)}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '16px',
+                    border: '1px solid var(--color-border)',
+                    backgroundColor: '#ffffff',
+                    color: 'var(--color-text)',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )
+      )}
 
       {/* People Totals List (Interactive Tap-to-Expand Breakdown) */}
       <div
@@ -264,9 +420,28 @@ export default function BillPage() {
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
                       }}
                     >
-                      {person.name}
+                      <span>{person.name}</span>
+                      {myPerson && person.id === myPerson.id && (
+                        <span
+                          style={{
+                            fontSize: '0.68rem',
+                            fontWeight: 800,
+                            backgroundColor: '#dcfce7',
+                            color: '#166534',
+                            padding: '2px 6px',
+                            borderRadius: '10px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em',
+                          }}
+                        >
+                          You
+                        </span>
+                      )}
                     </span>
                   </div>
 
@@ -554,14 +729,97 @@ export default function BillPage() {
         </div>
       </div>
 
-      {/* Start New Split Action */}
-      <Link
-        to="/scan"
-        className="btn-secondary"
-        style={{ alignSelf: 'center', textDecoration: 'none', textAlign: 'center', marginBottom: 16 }}
+      {/* Rounding & Calculation Fairness Explainer */}
+      <div
+        style={{
+          backgroundColor: '#ffffff',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-md)',
+          padding: '12px 14px',
+          marginBottom: 16,
+          boxShadow: 'var(--shadow-sm)',
+        }}
       >
-        Scan a New Receipt
-      </Link>
+        <button
+          type="button"
+          onClick={() => setShowMathExplainer((prev) => !prev)}
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            width: '100%',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+            textAlign: 'left',
+          }}
+        >
+          <span style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>⚖️</span> How is this bill calculated?
+          </span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+            {showMathExplainer ? '▲' : '▼'}
+          </span>
+        </button>
+
+        {showMathExplainer && (
+          <div
+            style={{
+              marginTop: 10,
+              fontSize: '0.8rem',
+              color: 'var(--color-text-muted)',
+              lineHeight: 1.5,
+              borderTop: '1px dashed var(--color-border)',
+              paddingTop: 8,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+            }}
+          >
+            <div>
+              <strong style={{ color: 'var(--color-text)' }}>Exact Cent Math:</strong> When dishes or taxes don't divide into exact whole numbers (e.g. 100 split 3 ways is 33.333...), TabSplit uses largest-remainder rounding so every person's share sums up to the receipt total down to the exact minor unit (no missing or duplicate cents).
+            </div>
+            <div>
+              <strong style={{ color: 'var(--color-text)' }}>Fair Tax & Tip:</strong> Taxes, tips, and service charges are weighted by what each person ordered, so you only pay taxes proportional to your own dishes.
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Growth Loop: Split your next bill banner */}
+      <div
+        style={{
+          backgroundColor: 'var(--color-surface-subtle)',
+          border: '1.5px solid var(--color-border)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '16px',
+          textAlign: 'center',
+          marginBottom: 16,
+        }}
+      >
+        <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--color-text)', marginBottom: 4 }}>
+          Splitting lunch or coffee next? ☕
+        </div>
+        <p style={{ margin: '0 0 12px', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+          Snap a receipt or enter items manually. Free, instant, no signup required.
+        </p>
+        <Link
+          to="/"
+          className="btn-primary"
+          style={{
+            display: 'inline-flex',
+            textDecoration: 'none',
+            width: '100%',
+            justifyContent: 'center',
+            fontWeight: 700,
+            fontSize: '0.9rem',
+            padding: '10px 16px',
+          }}
+        >
+          Split your next bill with TabSplit →
+        </Link>
+      </div>
     </div>
   );
 }

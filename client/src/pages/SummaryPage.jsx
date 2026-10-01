@@ -230,6 +230,27 @@ export default function SummaryPage() {
         </div>
       )}
 
+      {/* Rounding Trust Notice */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontSize: '0.78rem',
+          color: 'var(--color-text-muted)',
+          marginBottom: 16,
+          padding: '8px 12px',
+          backgroundColor: 'var(--color-surface-subtle)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--color-border)',
+        }}
+      >
+        <span>⚖️</span>
+        <span>
+          <strong>Exact Cent Precision:</strong> Calculated with largest-remainder rounding so everyone's share reconciles to the exact cent with zero floating-point error.
+        </span>
+      </div>
+
       {/* Bill Breakdown Card */}
       <div
         style={{

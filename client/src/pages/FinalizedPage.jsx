@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { saveBillToHistory } from '../storage';
 
 function currencySymbol(currency) {
   if (currency === 'USD') return '$';
@@ -28,6 +29,23 @@ export default function FinalizedPage() {
   const shareUrl = location.state?.shareUrl;
   const bill = location.state?.bill;
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (shareCode && bill) {
+      const totals = bill.totals || {};
+      const peopleTotals = totals.people || bill.people || [];
+      const billTotalMinor = totals.billTotalMinor ?? bill.totalMinor ?? 0;
+      saveBillToHistory({
+        shareCode,
+        restaurantName: bill.restaurantName,
+        currency: bill.currency || 'USD',
+        totalMinor: billTotalMinor,
+        participantCount: peopleTotals.length,
+        createdAt: Date.now(),
+        role: 'created',
+      });
+    }
+  }, [shareCode, bill]);
 
   if (!shareCode && !bill) {
     return (

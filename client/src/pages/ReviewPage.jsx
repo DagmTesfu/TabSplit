@@ -296,6 +296,49 @@ export default function ReviewPage() {
         </button>
       </div>
 
+      {/* Manual Entry Guidance Card */}
+      {items.length <= 1 && items.every((i) => !i.name.trim() && parseSignedMinor(i.priceStr) === 0) && (
+        <div
+          style={{
+            backgroundColor: '#eff6ff',
+            border: '1px solid #bfdbfe',
+            borderRadius: 'var(--radius-md)',
+            padding: '10px 14px',
+            marginBottom: 14,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 10,
+          }}
+        >
+          <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>✍️</span>
+          <div style={{ fontSize: '0.82rem', color: '#1e3a8a', lineHeight: 1.4 }}>
+            <strong>Manual entry:</strong> Type your dishes and prices below. Tap <strong>+ Add Item</strong> for more, then customize tax or tip at the bottom.
+          </div>
+        </div>
+      )}
+
+      {/* Items Empty State */}
+      {items.length === 0 && (
+        <div
+          style={{
+            border: '2px dashed var(--border-color)',
+            borderRadius: '12px',
+            padding: '24px 16px',
+            textAlign: 'center',
+            marginBottom: 16,
+            backgroundColor: 'var(--color-surface-subtle)',
+          }}
+        >
+          <div style={{ fontSize: '2rem', marginBottom: 6 }}>🍽️</div>
+          <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--color-text)', marginBottom: 4 }}>
+            No items in this bill yet
+          </div>
+          <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>
+            Tap <strong>+ Add Item</strong> below to enter your first dish, drink, or charge. 👇
+          </p>
+        </div>
+      )}
+
       {/* Items List */}
       <ul style={{ listStyle: 'none', padding: 0, marginBottom: 12 }}>
         {items.map((item, index) => {
@@ -341,7 +384,7 @@ export default function ReviewPage() {
                 value={item.name}
                 onChange={(e) => handleItemChange(item.id, 'name', e.target.value)}
                 aria-label={`Item ${index + 1} name`}
-                placeholder="Item name"
+                placeholder="e.g. Burger or Drinks"
                 style={{ ...inputBaseStyle, flex: 1, minWidth: 0 }}
               />
 

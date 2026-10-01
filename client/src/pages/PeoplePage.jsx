@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getSessionData, updateSessionData } from '../session';
 import { getAvatarColor, getInitials } from '../avatarColors';
+import { getMyName, setMyName, getRecentPeople, saveRecentPeople } from '../storage';
 
 function currencySymbol(currency) {
   if (currency === 'USD') return '$';
@@ -153,12 +154,26 @@ export default function PeoplePage() {
     }
   };
 
+  const handleQuickAdd = (name) => {
+    const result = validatePersonName(name, people);
+    if (!result.valid) {
+      setError(result.error);
+      return;
+    }
+    setError(null);
+    setPeople((prev) => [...prev, { id: createPersonId(), name: result.trimmed }]);
+  };
+
   const handleContinue = () => {
     if (people.length === 0) {
       setError('Please add at least one person before continuing.');
       return;
     }
     setError(null);
+    saveRecentPeople(people.map((p) => p.name));
+    if (!getMyName() && people.length > 0) {
+      setMyName(people[0].name);
+    }
     updateSessionData({ receipt, people });
     const assignments = location.state?.assignments || session.assignments;
     navigate('/assign', {
@@ -231,6 +246,65 @@ export default function PeoplePage() {
             + Add
           </button>
         </div>
+
+        {/* Quick Add Chips for User and Recent Friends */}
+        {(() => {
+          const myName = getMyName();
+          const recentPeople = getRecentPeople();
+          const unusedRecent = recentPeople.filter(
+            (name) => !people.some((p) => p.name.trim().toLowerCase() === name.trim().toLowerCase())
+          );
+          const showMyselfChip = Boolean(
+            myName && !people.some((p) => p.name.trim().toLowerCase() === myName.toLowerCase())
+          );
+
+          if (!showMyselfChip && unusedRecent.length === 0) return null;
+
+          return (
+            <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                Quick add:
+              </span>
+              {showMyselfChip && (
+                <button
+                  type="button"
+                  onClick={() => handleQuickAdd(myName)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '14px',
+                    border: '1px solid #93c5fd',
+                    backgroundColor: '#eff6ff',
+                    color: 'var(--color-primary)',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  + Me ({myName})
+                </button>
+              )}
+              {unusedRecent.slice(0, 5).map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => handleQuickAdd(name)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '14px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: '#ffffff',
+                    color: 'var(--color-text)',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  + {name}
+                </button>
+              ))}
+            </div>
+          );
+        })()}
       </form>
 
       {/* Validation Error Message */}
