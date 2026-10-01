@@ -653,7 +653,7 @@ test('rate-limit: 429 response does not expose OpenRouter internals to caller me
   mocked.mock.restore();
 });
 
-test('gemini: uses Google AI Studio endpoint and gemini-3.5-flash-lite when GEMINI_API_KEY is configured', async () => {
+test('gemini: uses Google AI Studio endpoint and gemini-3.5-flash when GEMINI_API_KEY is configured', async () => {
   process.env.GEMINI_API_KEY = 'test-gemini-key';
   let calledUrl = '';
   let authHeader = '';
@@ -668,11 +668,11 @@ test('gemini: uses Google AI Studio endpoint and gemini-3.5-flash-lite when GEMI
   assert.deepEqual(result, normalized);
   assert.equal(calledUrl, 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions');
   assert.equal(authHeader, 'Bearer test-gemini-key');
-  assert.equal(requestModel, 'gemini-3.5-flash-lite');
+  assert.equal(requestModel, 'gemini-3.5-flash');
   mocked.mock.restore();
 });
 
-test('gemini: falls back to gemini-flash-latest on 2nd attempt when attempt 1 fails', async () => {
+test('gemini: falls back to gemini-3.8-flash on 2nd attempt when attempt 1 fails', async () => {
   process.env.GEMINI_API_KEY = 'test-gemini-key';
   const modelsUsed = [];
   const mocked = mock.method(globalThis, 'fetch', async (url, options) => {
@@ -685,7 +685,7 @@ test('gemini: falls back to gemini-flash-latest on 2nd attempt when attempt 1 fa
   });
   const result = await extractReceipt(JPEG, 'image/jpeg', 'ETB');
   assert.deepEqual(result, normalized);
-  assert.deepEqual(modelsUsed, ['gemini-3.5-flash-lite', 'gemini-flash-latest']);
+  assert.deepEqual(modelsUsed, ['gemini-3.5-flash', 'gemini-3.8-flash']);
   mocked.mock.restore();
 });
 

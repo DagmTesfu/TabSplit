@@ -321,8 +321,8 @@ export const DEFAULT_VISION_MODEL = CANDIDATE_VISION_MODELS[0];
 export const FALLBACK_VISION_MODEL = CANDIDATE_VISION_MODELS[1];
 
 export const CANDIDATE_GEMINI_MODELS = [
-  'gemini-3.5-flash-lite',
-  'gemini-flash-latest',
+  'gemini-3.5-flash',
+  'gemini-3.8-flash',
 ];
 
 // Configurable only in hermetic tests to avoid slowing down test runs
