@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { saveBillToHistory } from '../storage';
+import { saveBillToHistory, getHostPaymentAccounts } from '../storage';
+import { encodePaymentHash } from '../paymentAccounts';
+import PaymentMethods from '../components/PaymentMethods';
 
 function currencySymbol(currency) {
   if (currency === 'USD') return '$';
@@ -61,13 +63,19 @@ export default function FinalizedPage() {
     );
   }
 
-  const handleCopy = async () => {
-    if (!shareUrl) return;
+  const [paymentAccounts, setPaymentAccounts] = useState(() => getHostPaymentAccounts());
+  const paymentHash = encodePaymentHash(paymentAccounts);
+  const effectiveShareUrl = shareUrl
+    ? (paymentHash ? `${shareUrl}#pay=${paymentHash}` : shareUrl)
+    : '';
+
+  const handleCopy = async (textToCopy = effectiveShareUrl) => {
+    if (!textToCopy) return;
 
     let success = false;
     if (navigator.clipboard && window.isSecureContext) {
       try {
-        await navigator.clipboard.writeText(shareUrl);
+        await navigator.clipboard.writeText(textToCopy);
         success = true;
       } catch {
         success = false;
@@ -78,7 +86,7 @@ export default function FinalizedPage() {
       // Fallback for HTTP / non-secure mobile testing contexts
       try {
         const textarea = document.createElement('textarea');
-        textarea.value = shareUrl;
+        textarea.value = textToCopy;
         textarea.style.position = 'fixed';
         textarea.style.top = '0';
         textarea.style.left = '0';
@@ -97,6 +105,20 @@ export default function FinalizedPage() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  const handleWhatsAppShare = () => {
+    if (!effectiveShareUrl) return;
+    const restName = bill?.restaurantName ? `for ${bill.restaurantName}` : '';
+    const text = `🍽️ TabSplit Bill Split ${restName}:\nTotal: ${formatAmount(billTotalMinor, currency)}\n\nView your share & payment details here:\n${effectiveShareUrl}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  const handlePersonWhatsAppShare = (person) => {
+    if (!effectiveShareUrl) return;
+    const restName = bill?.restaurantName ? `for ${bill.restaurantName}` : '';
+    const text = `Hey ${person.name}! 👋 Your share ${restName} is ${formatAmount(person.totalMinor ?? 0, currency)}.\n\nView details & pay back here:\n${effectiveShareUrl}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const currency = bill?.currency || 'USD';
@@ -189,22 +211,54 @@ export default function FinalizedPage() {
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  padding: '7px 10px',
+                  padding: '8px 10px',
                   backgroundColor: 'var(--color-surface-subtle)',
                   border: '1px solid var(--color-border)',
                   borderRadius: 'var(--radius-sm)',
                   fontSize: '0.85rem',
+                  gap: 8,
                 }}
               >
-                <span style={{ fontWeight: 700, color: 'var(--color-primary)' }}>{person.name}</span>
-                <span style={{ fontWeight: 800, color: 'var(--color-text)' }}>
-                  {formatAmount(person.totalMinor ?? 0, currency)}
-                </span>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <span style={{ fontWeight: 700, color: 'var(--color-primary)' }}>{person.name}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                  <span style={{ fontWeight: 800, color: 'var(--color-text)' }}>
+                    {formatAmount(person.totalMinor ?? 0, currency)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handlePersonWhatsAppShare(person)}
+                    title={`Send share to ${person.name} via WhatsApp`}
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      backgroundColor: '#25D366',
+                      color: '#ffffff',
+                      border: 'none',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <span>💬</span> WhatsApp
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Host Payment Methods (Telebirr, CBE, Awash, Abyssinia) */}
+      <PaymentMethods
+        accounts={paymentAccounts}
+        onAccountsChange={setPaymentAccounts}
+        isHost={true}
+      />
 
       {/* Share Link Card */}
       <div
@@ -230,45 +284,71 @@ export default function FinalizedPage() {
           SHARE WITH FRIENDS
         </div>
 
-        {shareUrl && (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input
-              type="text"
-              readOnly
-              value={shareUrl}
-              style={{
-                flex: 1,
-                minWidth: 0,
-                minHeight: '40px',
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--color-border)',
-                backgroundColor: 'var(--color-surface-subtle)',
-                fontSize: '0.85rem',
-                color: 'var(--color-text)',
-                outline: 'none',
-              }}
-            />
+        {effectiveShareUrl && (
+          <div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                type="text"
+                readOnly
+                value={effectiveShareUrl}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  minHeight: '40px',
+                  padding: '8px 12px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--color-border)',
+                  backgroundColor: 'var(--color-surface-subtle)',
+                  fontSize: '0.85rem',
+                  color: 'var(--color-text)',
+                  outline: 'none',
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => handleCopy(effectiveShareUrl)}
+                style={{
+                  padding: '10px 16px',
+                  minHeight: '40px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: copied ? 'var(--color-success)' : 'var(--color-primary)',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  transition: 'background-color 0.15s ease',
+                  touchAction: 'manipulation',
+                }}
+              >
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+
             <button
               type="button"
-              onClick={handleCopy}
+              onClick={handleWhatsAppShare}
               style={{
-                padding: '10px 16px',
-                minHeight: '40px',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: copied ? 'var(--color-success)' : 'var(--color-primary)',
+                marginTop: 10,
+                width: '100%',
+                minHeight: '42px',
+                backgroundColor: '#25D366',
                 color: '#ffffff',
                 border: 'none',
-                fontWeight: 700,
-                fontSize: '0.85rem',
+                borderRadius: 'var(--radius-sm)',
+                fontWeight: 800,
+                fontSize: '0.88rem',
                 cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
-                transition: 'background-color 0.15s ease',
-                touchAction: 'manipulation',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                boxShadow: '0 2px 6px rgba(37, 211, 102, 0.25)',
               }}
             >
-              {copied ? 'Copied!' : 'Copy'}
+              <span>💬</span> Share Full Breakdown on WhatsApp
             </button>
           </div>
         )}

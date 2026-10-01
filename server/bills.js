@@ -182,6 +182,7 @@ export function validateBillRequest(input) {
     people: [...peopleById.values()],
     taxMinor: input.taxMinor === undefined || input.taxMinor === null ? 0 : assertMinorAmount(input.taxMinor, 'Tax'),
     tipMinor: input.tipMinor === undefined || input.tipMinor === null ? 0 : assertMinorAmount(input.tipMinor, 'Tip'),
+    tipSplitMethod: input.tipSplitMethod === 'equal' ? 'equal' : 'proportional',
     additionalCharges,
     printedTotalMinor,
   };
@@ -201,6 +202,7 @@ function recalculate(validated) {
       tipMinor: validated.tipMinor,
       taxInclusive,
       additionalCharges: validated.additionalCharges,
+      tipSplitMethod: validated.tipSplitMethod,
     });
   } catch (error) {
     // split.js invariants are defense in depth; validation above should make

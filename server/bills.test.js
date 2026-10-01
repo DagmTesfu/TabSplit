@@ -30,6 +30,7 @@ test('validation: normalizes a valid bill without mutating the input', () => {
     people: [{ id: 'p1', name: 'Dagm' }],
     taxMinor: 1000,
     tipMinor: 500,
+    tipSplitMethod: 'proportional',
     additionalCharges: [],
     printedTotalMinor: null,
   });

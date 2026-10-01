@@ -2,7 +2,16 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getBill } from '../api';
 import { getAvatarColor, getInitials } from '../avatarColors';
-import { getMyName, setMyName, saveBillToHistory } from '../storage';
+import {
+  getMyName,
+  setMyName,
+  saveBillToHistory,
+  getHostPaymentAccounts,
+  getPaidStatus,
+  setPersonPaidStatus,
+} from '../storage';
+import { decodePaymentHash } from '../paymentAccounts';
+import PaymentMethods from '../components/PaymentMethods';
 
 function currencySymbol(currency) {
   if (currency === 'USD') return '$';
@@ -34,6 +43,31 @@ export default function BillPage() {
   const [myName, setMyNameState] = useState(() => getMyName());
   const [showNameSelector, setShowNameSelector] = useState(false);
   const [showMathExplainer, setShowMathExplainer] = useState(false);
+  const [paidMap, setPaidMap] = useState(() => (shareCode ? getPaidStatus(shareCode) : {}));
+  const [paymentAccounts, setPaymentAccounts] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const fromUrl = decodePaymentHash(window.location.hash) || decodePaymentHash(window.location.search);
+      if (fromUrl && (fromUrl.telebirr || fromUrl.cbe || fromUrl.awash || fromUrl.abyssinia || fromUrl.accountName)) {
+        return fromUrl;
+      }
+    }
+    return getHostPaymentAccounts();
+  });
+
+  useEffect(() => {
+    if (shareCode) {
+      setPaidMap(getPaidStatus(shareCode));
+    }
+  }, [shareCode]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const fromUrl = decodePaymentHash(window.location.hash) || decodePaymentHash(window.location.search);
+      if (fromUrl && (fromUrl.telebirr || fromUrl.cbe || fromUrl.awash || fromUrl.abyssinia || fromUrl.accountName)) {
+        setPaymentAccounts(fromUrl);
+      }
+    }
+  }, []);
 
   const fetchBill = useCallback(async () => {
     if (!shareCode) return;
@@ -155,6 +189,25 @@ export default function BillPage() {
     setMyNameState('');
     setShowNameSelector(true);
   };
+
+  const handleTogglePaid = (personId, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const nextVal = !paidMap[personId];
+    setPersonPaidStatus(shareCode, personId, nextVal);
+    setPaidMap((prev) => ({ ...prev, [personId]: nextVal }));
+  };
+
+  const handlePersonWhatsAppShare = (person) => {
+    const restName = restaurantName ? `for ${restaurantName}` : '';
+    const shareUrl = window.location.href;
+    const text = `Hey ${person.name}! 👋 Your share ${restName} is ${formatAmount(person.totalMinor ?? 0, currency)}.\n\nView details & pay back here:\n${shareUrl}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  const paidCount = peopleTotals.filter((p) => paidMap[p.id]).length;
 
   return (
     <div className="page">
@@ -286,6 +339,54 @@ export default function BillPage() {
           >
             <span>{expandedPersonId === myPerson.id ? '▲ Hide' : '▼ View'} your dish breakdown</span>
           </button>
+
+          {/* Quick Mark-as-Paid Toggle for User */}
+          <div
+            style={{
+              marginTop: 10,
+              padding: '8px 12px',
+              backgroundColor: paidMap[myPerson.id] ? '#dcfce7' : '#ffffff',
+              border: `1.5px solid ${paidMap[myPerson.id] ? '#86efac' : '#bbf7d0'}`,
+              borderRadius: 'var(--radius-sm)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 8,
+              flexWrap: 'wrap',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: '0.9rem' }}>{paidMap[myPerson.id] ? '✅' : '⏳'}</span>
+              <span
+                style={{
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  color: paidMap[myPerson.id] ? '#166534' : 'var(--color-text)',
+                }}
+              >
+                {paidMap[myPerson.id] ? "You've marked your share as paid!" : 'Have you paid your share?'}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={(e) => handleTogglePaid(myPerson.id, e)}
+              style={{
+                backgroundColor: paidMap[myPerson.id] ? '#166534' : 'var(--color-primary)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '14px',
+                padding: '5px 12px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {paidMap[myPerson.id] ? '✓ Paid (Undo)' : 'I Already Paid'}
+            </button>
+          </div>
         </div>
       ) : (
         peopleTotals.length > 0 && (
@@ -329,6 +430,13 @@ export default function BillPage() {
         )
       )}
 
+      {/* Host Payment Methods (Telebirr, CBE, Awash, Abyssinia) */}
+      <PaymentMethods
+        accounts={paymentAccounts}
+        onAccountsChange={setPaymentAccounts}
+        restaurantName={restaurantName}
+      />
+
       {/* People Totals List (Interactive Tap-to-Expand Breakdown) */}
       <div
         style={{
@@ -354,6 +462,36 @@ export default function BillPage() {
           </h2>
           <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Tap name to view breakdown</span>
         </div>
+
+        {/* Settlement Progress Tracker */}
+        {peopleTotals.length > 0 && (
+          <div
+            style={{
+              marginBottom: 12,
+              padding: '8px 12px',
+              backgroundColor: 'var(--color-surface-subtle)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', fontWeight: 700, marginBottom: 5 }}>
+              <span style={{ color: 'var(--color-text-muted)' }}>Settlement Progress</span>
+              <span style={{ color: paidCount === peopleTotals.length ? '#16a34a' : 'var(--color-primary)' }}>
+                {paidCount} of {peopleTotals.length} paid ({Math.round((paidCount / peopleTotals.length) * 100)}%)
+              </span>
+            </div>
+            <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+              <div
+                style={{
+                  width: `${(paidCount / peopleTotals.length) * 100}%`,
+                  height: '100%',
+                  backgroundColor: paidCount === peopleTotals.length ? '#16a34a' : 'var(--color-primary)',
+                  transition: 'width 0.3s ease',
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {peopleTotals.map((person) => {
@@ -445,8 +583,54 @@ export default function BillPage() {
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                    <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--color-primary)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePersonWhatsAppShare(person);
+                      }}
+                      title={`Share via WhatsApp to ${person.name}`}
+                      style={{
+                        background: '#25D366',
+                        border: 'none',
+                        color: '#ffffff',
+                        padding: '4px 7px',
+                        borderRadius: '6px',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 3,
+                      }}
+                    >
+                      <span>💬</span>
+                      <span>Share</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => handleTogglePaid(person.id, e)}
+                      title="Toggle paid status"
+                      style={{
+                        background: paidMap[person.id] ? '#dcfce7' : '#f8fafc',
+                        border: `1.5px solid ${paidMap[person.id] ? '#86efac' : '#cbd5e1'}`,
+                        color: paidMap[person.id] ? '#166534' : '#64748b',
+                        padding: '4px 7px',
+                        borderRadius: '6px',
+                        fontSize: '0.72rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 2,
+                      }}
+                    >
+                      <span>{paidMap[person.id] ? '✓ Paid' : 'Unpaid'}</span>
+                    </button>
+
+                    <span style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--color-primary)', marginLeft: 2 }}>
                       {formatAmount(person.totalMinor, currency)}
                     </span>
                     <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>

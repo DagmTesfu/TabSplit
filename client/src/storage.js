@@ -136,3 +136,62 @@ export function removeBillFromHistory(shareCode) {
 export function clearBillHistory() {
   removeStoreItem(BILL_HISTORY_KEY);
 }
+
+// 4. Host Payment Accounts (Telebirr, CBE, Awash, Abyssinia)
+const PAYMENT_ACCOUNTS_KEY = 'tabsplit_host_payment_accounts';
+
+export function getHostPaymentAccounts() {
+  try {
+    const raw = getStoreItem(PAYMENT_ACCOUNTS_KEY);
+    if (!raw) return { accountName: '', telebirr: '', cbe: '', awash: '', abyssinia: '' };
+    const parsed = JSON.parse(raw);
+    return {
+      accountName: typeof parsed.accountName === 'string' ? parsed.accountName.trim() : '',
+      telebirr: typeof parsed.telebirr === 'string' ? parsed.telebirr.trim() : '',
+      cbe: typeof parsed.cbe === 'string' ? parsed.cbe.trim() : '',
+      awash: typeof parsed.awash === 'string' ? parsed.awash.trim() : '',
+      abyssinia: typeof parsed.abyssinia === 'string' ? parsed.abyssinia.trim() : '',
+    };
+  } catch {
+    return { accountName: '', telebirr: '', cbe: '', awash: '', abyssinia: '' };
+  }
+}
+
+export function saveHostPaymentAccounts(accounts) {
+  if (!accounts || typeof accounts !== 'object') return;
+  try {
+    const clean = {
+      accountName: typeof accounts.accountName === 'string' ? accounts.accountName.trim() : '',
+      telebirr: typeof accounts.telebirr === 'string' ? accounts.telebirr.trim() : '',
+      cbe: typeof accounts.cbe === 'string' ? accounts.cbe.trim() : '',
+      awash: typeof accounts.awash === 'string' ? accounts.awash.trim() : '',
+      abyssinia: typeof accounts.abyssinia === 'string' ? accounts.abyssinia.trim() : '',
+    };
+    setStoreItem(PAYMENT_ACCOUNTS_KEY, JSON.stringify(clean));
+  } catch {}
+}
+
+// 5. "I already paid" per-person tracking per bill
+const PAID_STATUS_PREFIX = 'tabsplit_paid_';
+
+export function getPaidStatus(shareCode) {
+  if (!shareCode) return {};
+  try {
+    const raw = getStoreItem(`${PAID_STATUS_PREFIX}${shareCode}`);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function setPersonPaidStatus(shareCode, personId, isPaid) {
+  if (!shareCode || !personId) return;
+  try {
+    const current = getPaidStatus(shareCode);
+    const updated = { ...current, [personId]: Boolean(isPaid) };
+    setStoreItem(`${PAID_STATUS_PREFIX}${shareCode}`, JSON.stringify(updated));
+  } catch {}
+}
+

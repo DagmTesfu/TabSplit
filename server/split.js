@@ -62,7 +62,7 @@ export function splitItemPrice(priceMinor, count) {
   return splitEvenly(priceMinor, count);
 }
 
-export function computePersonTotals({ items, people, taxMinor = 0, tipMinor = 0, taxInclusive = false, additionalCharges = [] }) {
+export function computePersonTotals({ items, people, taxMinor = 0, tipMinor = 0, taxInclusive = false, additionalCharges = [], tipSplitMethod = 'proportional' }) {
   if (!Array.isArray(people) || people.length === 0) {
     throw new Error('At least one person is required');
   }
@@ -165,9 +165,25 @@ export function computePersonTotals({ items, people, taxMinor = 0, tipMinor = 0,
 
   const ids = [...peopleById.keys()];
   const baseTotals = ids.map((id) => totals.get(id));
-  const extraShares = baseTotals.some((amount) => amount > 0)
-    ? allocate(extra, baseTotals)
-    : baseTotals.map(() => 0);
+  let extraShares;
+  if (tipSplitMethod === 'equal' && tip > 0) {
+    const propExtra = isTaxInclusive ? chargesTotalMinor : tax + chargesTotalMinor;
+    const propShares = baseTotals.some((amount) => amount > 0)
+      ? allocate(propExtra, baseTotals)
+      : baseTotals.map(() => 0);
+    const activeIndices = baseTotals.map((b, i) => (b > 0 ? i : -1)).filter((i) => i !== -1);
+    const tipCount = activeIndices.length > 0 ? activeIndices.length : baseTotals.length;
+    const equalTipShares = splitEvenly(tip, tipCount);
+    extraShares = baseTotals.map((b, idx) => {
+      const activePos = activeIndices.indexOf(idx);
+      const tipPart = activePos !== -1 ? equalTipShares[activePos] : (activeIndices.length === 0 ? equalTipShares[idx] : 0);
+      return propShares[idx] + tipPart;
+    });
+  } else {
+    extraShares = baseTotals.some((amount) => amount > 0)
+      ? allocate(extra, baseTotals)
+      : baseTotals.map(() => 0);
+  }
   const personTotals = ids.map((id, index) => ({
     id,
     name: peopleById.get(id).name,

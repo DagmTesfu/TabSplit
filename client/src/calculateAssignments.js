@@ -254,9 +254,27 @@ export function calculateAssignments({ receipt = {}, people = [], assignments = 
     .map((p) => p.id);
 
   const baseTotals = ids.map((id) => personTotalsMap.get(id) ?? 0);
-  const adjustmentShares = baseTotals.some((amount) => amount > 0)
-    ? allocate(adjustmentTotalMinor, baseTotals)
-    : baseTotals.map(() => 0);
+  const tipSplitMethod = receipt.tipSplitMethod === 'equal' ? 'equal' : 'proportional';
+
+  let adjustmentShares;
+  if (tipSplitMethod === 'equal' && tipMinor > 0) {
+    const propExtra = (taxInclusive ? 0 : taxMinor) + chargesTotalMinor;
+    const propShares = baseTotals.some((amount) => amount > 0)
+      ? allocate(propExtra, baseTotals)
+      : baseTotals.map(() => 0);
+    const activeIndices = baseTotals.map((b, i) => (b > 0 ? i : -1)).filter((i) => i !== -1);
+    const tipCount = activeIndices.length > 0 ? activeIndices.length : baseTotals.length;
+    const equalTipShares = splitEvenly(tipMinor, tipCount);
+    adjustmentShares = baseTotals.map((b, idx) => {
+      const activePos = activeIndices.indexOf(idx);
+      const tipPart = activePos !== -1 ? equalTipShares[activePos] : (activeIndices.length === 0 ? equalTipShares[idx] : 0);
+      return propShares[idx] + tipPart;
+    });
+  } else {
+    adjustmentShares = baseTotals.some((amount) => amount > 0)
+      ? allocate(adjustmentTotalMinor, baseTotals)
+      : baseTotals.map(() => 0);
+  }
 
   const peopleTotals = ids.map((id, index) => {
     const itemsSubtotalMinor = baseTotals[index];
@@ -290,6 +308,7 @@ export function calculateAssignments({ receipt = {}, people = [], assignments = 
     taxMinor,
     taxInclusive: isTaxInclusive,
     tipMinor,
+    tipSplitMethod,
     additionalCharges: validatedCharges,
   };
 }

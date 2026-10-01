@@ -111,6 +111,7 @@ export default function ReviewPage() {
   const [taxStr, setTaxStr] = useState(() => minorToDecimalStr(receipt.taxMinor ?? 0));
   const [taxInclusive, setTaxInclusive] = useState(() => Boolean(receipt.taxInclusive));
   const [tipStr, setTipStr] = useState(() => minorToDecimalStr(receipt.tipMinor ?? 0));
+  const [tipSplitMethod, setTipSplitMethod] = useState(() => receipt.tipSplitMethod || 'proportional');
   const [additionalCharges, setAdditionalCharges] = useState(() =>
     Array.isArray(receipt.additionalCharges)
       ? receipt.additionalCharges.map((charge, idx) => ({
@@ -208,6 +209,7 @@ export default function ReviewPage() {
       taxMinor,
       taxInclusive,
       tipMinor,
+      tipSplitMethod,
       additionalCharges: additionalCharges.map((charge, idx) => ({
         id: charge.id || `charge-${idx + 1}`,
         name: (charge.name || '').trim() || `Charge ${idx + 1}`,
@@ -657,6 +659,69 @@ export default function ReviewPage() {
             }}
           />
         </div>
+
+        {/* Tip Splitting Options (Proportional vs Equal) */}
+        {tipMinor > 0 && (
+          <div
+            style={{
+              marginTop: 4,
+              marginBottom: 8,
+              padding: '8px 10px',
+              backgroundColor: 'var(--color-surface-subtle)',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            <div
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                color: 'var(--color-text-muted)',
+                marginBottom: 6,
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}
+            >
+              Split Tip
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                type="button"
+                onClick={() => setTipSplitMethod('proportional')}
+                style={{
+                  flex: 1,
+                  padding: '6px 8px',
+                  borderRadius: '6px',
+                  border: tipSplitMethod === 'proportional' ? '1.5px solid var(--color-primary)' : '1px solid var(--color-border)',
+                  backgroundColor: tipSplitMethod === 'proportional' ? '#eff6ff' : '#ffffff',
+                  color: tipSplitMethod === 'proportional' ? 'var(--color-primary)' : 'var(--color-text)',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Proportionally (by order)
+              </button>
+              <button
+                type="button"
+                onClick={() => setTipSplitMethod('equal')}
+                style={{
+                  flex: 1,
+                  padding: '6px 8px',
+                  borderRadius: '6px',
+                  border: tipSplitMethod === 'equal' ? '1.5px solid var(--color-primary)' : '1px solid var(--color-border)',
+                  backgroundColor: tipSplitMethod === 'equal' ? '#eff6ff' : '#ffffff',
+                  color: tipSplitMethod === 'equal' ? 'var(--color-primary)' : 'var(--color-text)',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Equally (divided evenly)
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Live Total */}
         <div

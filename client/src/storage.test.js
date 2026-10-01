@@ -9,6 +9,10 @@ import {
   saveBillToHistory,
   removeBillFromHistory,
   clearBillHistory,
+  getHostPaymentAccounts,
+  saveHostPaymentAccounts,
+  getPaidStatus,
+  setPersonPaidStatus,
 } from './storage.js';
 
 describe('Local Personalization and Storage', () => {
@@ -98,5 +102,36 @@ describe('Local Personalization and Storage', () => {
 
     clearBillHistory();
     assert.equal(getBillHistory().length, 0);
+  });
+
+  it('5. getHostPaymentAccounts and saveHostPaymentAccounts persist and sanitize', () => {
+    saveHostPaymentAccounts({
+      accountName: '  Dagmawi T. ',
+      telebirr: ' 0911223344 ',
+      cbe: ' 1000998877 ',
+      awash: '',
+      abyssinia: '',
+    });
+
+    const accounts = getHostPaymentAccounts();
+    assert.equal(accounts.accountName, 'Dagmawi T.');
+    assert.equal(accounts.telebirr, '0911223344');
+    assert.equal(accounts.cbe, '1000998877');
+    assert.equal(accounts.awash, '');
+    assert.equal(accounts.abyssinia, '');
+  });
+
+  it('6. getPaidStatus and setPersonPaidStatus tracks per-person payment state', () => {
+    assert.deepEqual(getPaidStatus('bill123'), {});
+
+    setPersonPaidStatus('bill123', 'p1', true);
+    setPersonPaidStatus('bill123', 'p2', false);
+
+    const status = getPaidStatus('bill123');
+    assert.equal(status.p1, true);
+    assert.equal(status.p2, false);
+
+    // Other bills remain unaffected
+    assert.deepEqual(getPaidStatus('bill999'), {});
   });
 });
