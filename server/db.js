@@ -30,3 +30,27 @@ export async function findBillByCode(client, shareCode) {
     .maybeSingle();
   return { data, error };
 }
+
+export async function updateBillPaidStatus(client, shareCode, personId, isPaid) {
+  const { data: row, error: fetchErr } = await client
+    .from('bills')
+    .select('bill')
+    .eq('share_code', shareCode)
+    .maybeSingle();
+
+  if (fetchErr) return { data: null, error: fetchErr };
+  if (!row) return { data: null, error: null };
+
+  const bill = row.bill || {};
+  const currentPaid = bill.paidMap || {};
+  const updatedPaid = { ...currentPaid, [personId]: Boolean(isPaid) };
+  const updatedBill = { ...bill, paidMap: updatedPaid };
+
+  const { error: updateErr } = await client
+    .from('bills')
+    .update({ bill: updatedBill })
+    .eq('share_code', shareCode);
+
+  if (updateErr) return { data: null, error: updateErr };
+  return { data: { shareCode, paidMap: updatedPaid }, error: null };
+}

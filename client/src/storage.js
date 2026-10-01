@@ -211,3 +211,16 @@ export function setPersonPaidStatus(shareCode, personId, isPaid) {
   } catch {}
 }
 
+export function mergePaidStatus(shareCode, serverPaidMap) {
+  if (!shareCode || !serverPaidMap || typeof serverPaidMap !== 'object') return {};
+  try {
+    const current = getPaidStatus(shareCode);
+    const merged = { ...current, ...serverPaidMap };
+    setStoreItem(`${PAID_STATUS_PREFIX}${shareCode}`, JSON.stringify(merged));
+    return merged;
+  } catch {
+    return serverPaidMap;
+  }
+}
+
+

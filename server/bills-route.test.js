@@ -83,12 +83,30 @@ function fakeDb(overrides = {}) {
         error: null,
       };
     },
+    async updateBillPaidStatus(code, personId, isPaid) {
+      if (overrides.updateError) return { data: null, error: overrides.updateError };
+      const row = rows.get(code);
+      if (!row) return { data: null, error: null };
+      const currentPaid = row.bill?.paidMap || {};
+      const updatedPaid = { ...currentPaid, [personId]: Boolean(isPaid) };
+      row.bill = { ...row.bill, paidMap: updatedPaid };
+      return { data: { shareCode: code, paidMap: updatedPaid }, error: null };
+    },
   };
 }
 
 function post(base, body) {
   return realFetch(`${base}/api/bills`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: typeof body === 'string' ? body : JSON.stringify(body),
+    signal: AbortSignal.timeout(5000),
+  });
+}
+
+function patch(base, path, body) {
+  return realFetch(`${base}${path}`, {
+    method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: typeof body === 'string' ? body : JSON.stringify(body),
     signal: AbortSignal.timeout(5000),
@@ -288,6 +306,70 @@ test('route: POST /api/bills preserves additionalCharges in finalized bill', asy
     const fetched = await getRes.json();
     assert.deepEqual(fetched.bill.additionalCharges, [{ name: 'Service Fee', amountMinor: 2000 }]);
     assert.equal(fetched.bill.totals.billTotalMinor, 83500);
+  });
+});
+
+test('route: PATCH /api/bills/:code/paid updates paid status and syncs to GET', async () => {
+  const fake = fakeDb();
+  await withServer(async (base) => {
+    setBillDbForTesting(fake);
+    const postRes = await post(base, validBody);
+    assert.equal(postRes.status, 201);
+    const { shareCode } = await postRes.json();
+
+    // Mark p1 as paid
+    const patchRes1 = await patch(base, `/api/bills/${shareCode}/paid`, { personId: 'p1', isPaid: true });
+    assert.equal(patchRes1.status, 200);
+    const patchData1 = await patchRes1.json();
+    assert.equal(patchData1.shareCode, shareCode);
+    assert.deepEqual(patchData1.paidMap, { p1: true });
+
+    // Verify GET returns updated paidMap
+    const getRes1 = await realFetch(`${base}/api/bills/${shareCode}`);
+    assert.equal(getRes1.status, 200);
+    const fetched1 = await getRes1.json();
+    assert.deepEqual(fetched1.paidMap, { p1: true });
+
+    // Mark p2 as paid
+    const patchRes2 = await patch(base, `/api/bills/${shareCode}/paid`, { personId: 'p2', isPaid: true });
+    assert.equal(patchRes2.status, 200);
+    const patchData2 = await patchRes2.json();
+    assert.deepEqual(patchData2.paidMap, { p1: true, p2: true });
+
+    // Unmark p1 (undo paid)
+    const patchRes3 = await patch(base, `/api/bills/${shareCode}/paid`, { personId: 'p1', isPaid: false });
+    assert.equal(patchRes3.status, 200);
+    const patchData3 = await patchRes3.json();
+    assert.deepEqual(patchData3.paidMap, { p1: false, p2: true });
+  });
+});
+
+test('route: PATCH /api/bills/:code/paid validates input payloads', async () => {
+  const fake = fakeDb();
+  await withServer(async (base) => {
+    setBillDbForTesting(fake);
+    const postRes = await post(base, validBody);
+    const { shareCode } = await postRes.json();
+
+    // Missing / invalid personId
+    const resNoPerson = await patch(base, `/api/bills/${shareCode}/paid`, { isPaid: true });
+    assert.equal(resNoPerson.status, 400);
+    assert.equal((await resNoPerson.json()).code, 'INVALID_PAYLOAD');
+
+    // Missing / non-boolean isPaid
+    const resNoPaid = await patch(base, `/api/bills/${shareCode}/paid`, { personId: 'p1', isPaid: 'yes' });
+    assert.equal(resNoPaid.status, 400);
+    assert.equal((await resNoPaid.json()).code, 'INVALID_PAYLOAD');
+
+    // Unknown person ID
+    const resUnknownPerson = await patch(base, `/api/bills/${shareCode}/paid`, { personId: 'nonexistent', isPaid: true });
+    assert.equal(resUnknownPerson.status, 404);
+    assert.equal((await resUnknownPerson.json()).code, 'PERSON_NOT_FOUND');
+
+    // Unknown bill share code
+    const resUnknownBill = await patch(base, '/api/bills/nonexistentCode/paid', { personId: 'p1', isPaid: true });
+    assert.equal(resUnknownBill.status, 404);
+    assert.equal((await resUnknownBill.json()).code, 'BILL_NOT_FOUND');
   });
 });
 

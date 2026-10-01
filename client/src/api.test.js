@@ -1,7 +1,7 @@
 import { test, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import axios from 'axios';
-import { extractReceipt, finalizeBill, buildFinalizePayload, getBill, getApiUrl } from './api.js';
+import { extractReceipt, finalizeBill, buildFinalizePayload, getBill, getApiUrl, updatePaidStatus } from './api.js';
 
 afterEach(() => {
   mock.restoreAll();
@@ -665,5 +665,34 @@ test('getBill: handles 429 RATE_LIMITED gracefully with user message', async () 
     }
   );
 });
+
+test('updatePaidStatus: sends PATCH request and returns updated paidMap', async () => {
+  mock.method(axios, 'patch', async (url, data) => {
+    assert.equal(url, '/api/bills/JSdTY1ih/paid');
+    assert.deepEqual(data, { personId: 'p1', isPaid: true });
+    return {
+      status: 200,
+      data: {
+        shareCode: 'JSdTY1ih',
+        paidMap: { p1: true },
+      },
+    };
+  });
+
+  const res = await updatePaidStatus('JSdTY1ih', 'p1', true);
+  assert.equal(res.shareCode, 'JSdTY1ih');
+  assert.deepEqual(res.paidMap, { p1: true });
+});
+
+test('updatePaidStatus: rejects invalid or empty shareCode', async () => {
+  await assert.rejects(
+    () => updatePaidStatus('', 'p1', true),
+    (err) => {
+      assert.equal(err.code, 'BILL_NOT_FOUND');
+      return true;
+    }
+  );
+});
+
 
 

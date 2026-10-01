@@ -174,3 +174,30 @@ export async function getBill(shareCode) {
     throw error;
   }
 }
+
+export async function updatePaidStatus(shareCode, personId, isPaid) {
+  if (typeof shareCode !== 'string' || !shareCode.trim()) {
+    const error = new Error('Bill not found');
+    error.code = 'BILL_NOT_FOUND';
+    error.status = 404;
+    throw error;
+  }
+  const cleanCode = encodeURIComponent(shareCode.trim());
+  const URL = getApiUrl(`/api/bills/${cleanCode}/paid`);
+
+  try {
+    const response = await axios.patch(URL, { personId, isPaid: Boolean(isPaid) }, { timeout: 10000 });
+    return response.data;
+  } catch (err) {
+    let message = err.message || 'Failed to update payment status.';
+    if (err.response?.data?.error) {
+      message = err.response.data.error;
+    }
+    const error = new Error(message);
+    error.code = err.response?.data?.code || 'NETWORK_ERROR';
+    error.status = err.response?.status;
+    error.response = err.response;
+    throw error;
+  }
+}
+

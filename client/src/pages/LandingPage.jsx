@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getBillHistory, removeBillFromHistory } from '../storage';
+import { getBillHistory, removeBillFromHistory, getPaidStatus } from '../storage';
 
 function currencySymbol(currency) {
   if (currency === 'USD') return '$';
@@ -207,8 +207,28 @@ export default function LandingPage() {
                   >
                     {item.restaurantName || 'Receipt Split'}
                   </div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
-                    {formatDate(item.createdAt)} · {item.participantCount} {item.participantCount === 1 ? 'person' : 'people'}
+                  <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span>{formatDate(item.createdAt)} · {item.participantCount} {item.participantCount === 1 ? 'person' : 'people'}</span>
+                    {(() => {
+                      const billPaid = getPaidStatus(item.shareCode);
+                      const paidCount = Object.values(billPaid).filter(Boolean).length;
+                      if (!paidCount) return null;
+                      const allPaid = paidCount >= (item.participantCount || 0);
+                      return (
+                        <span
+                          style={{
+                            fontSize: '0.68rem',
+                            fontWeight: 700,
+                            padding: '1px 5px',
+                            borderRadius: '6px',
+                            backgroundColor: allPaid ? '#dcfce7' : '#eff6ff',
+                            color: allPaid ? '#166534' : 'var(--color-primary)',
+                          }}
+                        >
+                          {allPaid ? '✓ All paid' : `${paidCount}/${item.participantCount} paid`}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </Link>
 

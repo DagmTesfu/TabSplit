@@ -13,6 +13,7 @@ import {
   saveHostPaymentAccounts,
   getPaidStatus,
   setPersonPaidStatus,
+  mergePaidStatus,
   isBillHost,
 } from './storage.js';
 
@@ -131,6 +132,16 @@ describe('Local Personalization and Storage', () => {
     const status = getPaidStatus('bill123');
     assert.equal(status.p1, true);
     assert.equal(status.p2, false);
+
+    // mergePaidStatus merges remote server status
+    const merged = mergePaidStatus('bill123', { p2: true, p3: true });
+    assert.equal(merged.p1, true);
+    assert.equal(merged.p2, true);
+    assert.equal(merged.p3, true);
+
+    const updated = getPaidStatus('bill123');
+    assert.equal(updated.p2, true);
+    assert.equal(updated.p3, true);
 
     // Other bills remain unaffected
     assert.deepEqual(getPaidStatus('bill999'), {});

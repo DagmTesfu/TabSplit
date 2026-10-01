@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getBill } from '../api';
+import { getBill, updatePaidStatus } from '../api';
 import { getAvatarColor, getInitials } from '../avatarColors';
 import {
   getMyName,
@@ -9,6 +9,7 @@ import {
   getHostPaymentAccounts,
   getPaidStatus,
   setPersonPaidStatus,
+  mergePaidStatus,
   isBillHost,
 } from '../storage';
 import { decodePaymentHash } from '../paymentAccounts';
@@ -91,6 +92,13 @@ export default function BillPage() {
           createdAt: data.created_at ? new Date(data.created_at).getTime() : Date.now(),
           role: 'viewed',
         });
+
+        // Sync payment status from server
+        const serverPaid = data.paidMap || b.paidMap;
+        if (serverPaid && typeof serverPaid === 'object') {
+          const merged = mergePaidStatus(shareCode, serverPaid);
+          setPaidMap((prev) => ({ ...prev, ...merged }));
+        }
       }
     } catch (err) {
       setError(err);
@@ -192,7 +200,7 @@ export default function BillPage() {
     setShowNameSelector(true);
   };
 
-  const handleTogglePaid = (personId, e) => {
+  const handleTogglePaid = async (personId, e) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -200,6 +208,16 @@ export default function BillPage() {
     const nextVal = !paidMap[personId];
     setPersonPaidStatus(shareCode, personId, nextVal);
     setPaidMap((prev) => ({ ...prev, [personId]: nextVal }));
+
+    try {
+      const res = await updatePaidStatus(shareCode, personId, nextVal);
+      if (res?.paidMap) {
+        mergePaidStatus(shareCode, res.paidMap);
+        setPaidMap((prev) => ({ ...prev, ...res.paidMap }));
+      }
+    } catch (err) {
+      console.warn('Could not sync paid status to server:', err?.message || err);
+    }
   };
 
   const handlePersonWhatsAppShare = (person) => {
@@ -407,51 +425,52 @@ export default function BillPage() {
             </div>
           )}
 
-          {/* Quick Mark-as-Paid Toggle for Host */}
-          {isHost && (
-            <div
-              style={{
-                marginTop: 10,
-                padding: '8px 12px',
-                backgroundColor: paidMap[myPerson.id] ? '#dcfce7' : '#ffffff',
-                border: `1.5px solid ${paidMap[myPerson.id] ? '#86efac' : '#bbf7d0'}`,
-                borderRadius: 8,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>{paidMap[myPerson.id] ? '✅' : '⏳'}</span>
-                <span
-                  style={{
-                    fontSize: '0.8rem',
-                    fontWeight: 700,
-                    color: paidMap[myPerson.id] ? '#166534' : 'var(--color-text)',
-                  }}
-                >
-                  {paidMap[myPerson.id] ? 'Marked as paid' : 'Have you paid your share?'}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={(e) => handleTogglePaid(myPerson.id, e)}
+          {/* Mark-as-Paid Toggle (Syncs across devices so host sees updates) */}
+          <div
+            style={{
+              marginTop: 10,
+              padding: '8px 12px',
+              backgroundColor: paidMap[myPerson.id] ? '#dcfce7' : '#ffffff',
+              border: `1.5px solid ${paidMap[myPerson.id] ? '#86efac' : '#bbf7d0'}`,
+              borderRadius: 8,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>{paidMap[myPerson.id] ? '✅' : (isHost ? '⏳' : '💸')}</span>
+              <span
                 style={{
-                  backgroundColor: paidMap[myPerson.id] ? '#166534' : 'var(--color-primary)',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: 14,
-                  padding: '4px 10px',
-                  fontSize: '0.75rem',
+                  fontSize: '0.8rem',
                   fontWeight: 700,
-                  cursor: 'pointer',
+                  color: paidMap[myPerson.id] ? '#166534' : 'var(--color-text)',
                 }}
               >
-                {paidMap[myPerson.id] ? 'Undo' : 'I Paid'}
-              </button>
+                {paidMap[myPerson.id]
+                  ? (isHost ? 'Marked as paid' : "You've marked your share as paid!")
+                  : (isHost ? 'Have you paid your share?' : 'Sent your payment to the host?')}
+              </span>
             </div>
-          )}
+            <button
+              type="button"
+              onClick={(e) => handleTogglePaid(myPerson.id, e)}
+              style={{
+                backgroundColor: paidMap[myPerson.id] ? '#166534' : 'var(--color-primary)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: 14,
+                padding: '4px 12px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {paidMap[myPerson.id] ? 'Undo' : 'I Paid'}
+            </button>
+          </div>
         </div>
       ) : (
         peopleTotals.length > 0 && (
