@@ -1,15 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getBill, updatePaidStatus } from '../api';
+import { getBill } from '../api';
 import { getAvatarColor, getInitials } from '../avatarColors';
 import {
   getMyName,
   setMyName,
   saveBillToHistory,
   getHostPaymentAccounts,
-  getPaidStatus,
-  setPersonPaidStatus,
-  mergePaidStatus,
   isBillHost,
 } from '../storage';
 import { decodePaymentHash } from '../paymentAccounts';
@@ -46,7 +43,6 @@ export default function BillPage() {
   const [showNameSelector, setShowNameSelector] = useState(false);
   const [showMathExplainer, setShowMathExplainer] = useState(false);
   const [activeDetailTab, setActiveDetailTab] = useState('people');
-  const [paidMap, setPaidMap] = useState(() => (shareCode ? getPaidStatus(shareCode) : {}));
   const [paymentAccounts, setPaymentAccounts] = useState(() => {
     if (typeof window !== 'undefined') {
       const fromUrl = decodePaymentHash(window.location.hash) || decodePaymentHash(window.location.search);
@@ -56,12 +52,6 @@ export default function BillPage() {
     }
     return getHostPaymentAccounts();
   });
-
-  useEffect(() => {
-    if (shareCode) {
-      setPaidMap(getPaidStatus(shareCode));
-    }
-  }, [shareCode]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -92,13 +82,6 @@ export default function BillPage() {
           createdAt: data.created_at ? new Date(data.created_at).getTime() : Date.now(),
           role: 'viewed',
         });
-
-        // Sync payment status from server
-        const serverPaid = data.paidMap || b.paidMap;
-        if (serverPaid && typeof serverPaid === 'object') {
-          const merged = mergePaidStatus(shareCode, serverPaid);
-          setPaidMap((prev) => ({ ...prev, ...merged }));
-        }
       }
     } catch (err) {
       setError(err);
@@ -200,26 +183,6 @@ export default function BillPage() {
     setShowNameSelector(true);
   };
 
-  const handleTogglePaid = async (personId, e) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    const nextVal = !paidMap[personId];
-    setPersonPaidStatus(shareCode, personId, nextVal);
-    setPaidMap((prev) => ({ ...prev, [personId]: nextVal }));
-
-    try {
-      const res = await updatePaidStatus(shareCode, personId, nextVal);
-      if (res?.paidMap) {
-        mergePaidStatus(shareCode, res.paidMap);
-        setPaidMap((prev) => ({ ...prev, ...res.paidMap }));
-      }
-    } catch (err) {
-      console.warn('Could not sync paid status to server:', err?.message || err);
-    }
-  };
-
   const handlePersonWhatsAppShare = (person) => {
     const restName = restaurantName ? `for ${restaurantName}` : '';
     const shareUrl = window.location.href;
@@ -228,7 +191,6 @@ export default function BillPage() {
   };
 
   const isHost = isBillHost(shareCode);
-  const paidCount = peopleTotals.filter((p) => paidMap[p.id]).length;
 
   return (
     <div className="page" style={{ maxWidth: 580, margin: '0 auto', padding: '16px 12px 32px' }}>
@@ -424,53 +386,6 @@ export default function BillPage() {
               )}
             </div>
           )}
-
-          {/* Mark-as-Paid Toggle (Syncs across devices so host sees updates) */}
-          <div
-            style={{
-              marginTop: 10,
-              padding: '8px 12px',
-              backgroundColor: paidMap[myPerson.id] ? '#dcfce7' : '#ffffff',
-              border: `1.5px solid ${paidMap[myPerson.id] ? '#86efac' : '#bbf7d0'}`,
-              borderRadius: 8,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: 8,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span>{paidMap[myPerson.id] ? '✅' : (isHost ? '⏳' : '💸')}</span>
-              <span
-                style={{
-                  fontSize: '0.8rem',
-                  fontWeight: 700,
-                  color: paidMap[myPerson.id] ? '#166534' : 'var(--color-text)',
-                }}
-              >
-                {paidMap[myPerson.id]
-                  ? (isHost ? 'Marked as paid' : "You've marked your share as paid!")
-                  : (isHost ? 'Have you paid your share?' : 'Sent your payment to the host?')}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={(e) => handleTogglePaid(myPerson.id, e)}
-              style={{
-                backgroundColor: paidMap[myPerson.id] ? '#166534' : 'var(--color-primary)',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: 14,
-                padding: '4px 12px',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              {paidMap[myPerson.id] ? 'Undo' : 'I Paid'}
-            </button>
-          </div>
         </div>
       ) : (
         peopleTotals.length > 0 && (
@@ -592,36 +507,6 @@ export default function BillPage() {
         {/* Tab 1: Everyone's Share */}
         {activeDetailTab === 'people' && (
           <div>
-            {/* Settlement Progress Tracker (Host only) */}
-            {isHost && peopleTotals.length > 0 && (
-              <div
-                style={{
-                  marginBottom: 12,
-                  padding: '8px 12px',
-                  backgroundColor: '#f8fafc',
-                  borderRadius: 8,
-                  border: '1px solid #e2e8f0',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', fontWeight: 700, marginBottom: 5 }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Settlement Progress</span>
-                  <span style={{ color: paidCount === peopleTotals.length ? '#16a34a' : 'var(--primary-color)' }}>
-                    {paidCount} of {peopleTotals.length} paid ({Math.round((paidCount / peopleTotals.length) * 100)}%)
-                  </span>
-                </div>
-                <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      width: `${(paidCount / peopleTotals.length) * 100}%`,
-                      height: '100%',
-                      backgroundColor: paidCount === peopleTotals.length ? '#16a34a' : 'var(--primary-color)',
-                      transition: 'width 0.3s ease',
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {peopleTotals.map((person) => {
                 const isExpanded = expandedPersonId === person.id;
@@ -733,29 +618,6 @@ export default function BillPage() {
                           >
                             <span>💬</span>
                             <span>Share</span>
-                          </button>
-                        )}
-
-                        {isHost && (
-                          <button
-                            type="button"
-                            onClick={(e) => handleTogglePaid(person.id, e)}
-                            title="Toggle paid status"
-                            style={{
-                              background: paidMap[person.id] ? '#dcfce7' : '#f8fafc',
-                              border: `1.5px solid ${paidMap[person.id] ? '#86efac' : '#cbd5e1'}`,
-                              color: paidMap[person.id] ? '#166534' : '#64748b',
-                              padding: '3px 6px',
-                              borderRadius: '6px',
-                              fontSize: '0.7rem',
-                              fontWeight: 800,
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 2,
-                            }}
-                          >
-                            <span>{paidMap[person.id] ? '✓ Paid' : 'Unpaid'}</span>
                           </button>
                         )}
 

@@ -187,40 +187,5 @@ export function saveHostPaymentAccounts(accounts) {
   } catch {}
 }
 
-// 5. "I already paid" per-person tracking per bill
-const PAID_STATUS_PREFIX = 'tabsplit_paid_';
-
-export function getPaidStatus(shareCode) {
-  if (!shareCode) return {};
-  try {
-    const raw = getStoreItem(`${PAID_STATUS_PREFIX}${shareCode}`);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-export function setPersonPaidStatus(shareCode, personId, isPaid) {
-  if (!shareCode || !personId) return;
-  try {
-    const current = getPaidStatus(shareCode);
-    const updated = { ...current, [personId]: Boolean(isPaid) };
-    setStoreItem(`${PAID_STATUS_PREFIX}${shareCode}`, JSON.stringify(updated));
-  } catch {}
-}
-
-export function mergePaidStatus(shareCode, serverPaidMap) {
-  if (!shareCode || !serverPaidMap || typeof serverPaidMap !== 'object') return {};
-  try {
-    const current = getPaidStatus(shareCode);
-    const merged = { ...current, ...serverPaidMap };
-    setStoreItem(`${PAID_STATUS_PREFIX}${shareCode}`, JSON.stringify(merged));
-    return merged;
-  } catch {
-    return serverPaidMap;
-  }
-}
 
 

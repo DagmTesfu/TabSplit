@@ -11,9 +11,6 @@ import {
   clearBillHistory,
   getHostPaymentAccounts,
   saveHostPaymentAccounts,
-  getPaidStatus,
-  setPersonPaidStatus,
-  mergePaidStatus,
   isBillHost,
 } from './storage.js';
 
@@ -123,31 +120,7 @@ describe('Local Personalization and Storage', () => {
     assert.equal(accounts.abyssinia, '');
   });
 
-  it('6. getPaidStatus and setPersonPaidStatus tracks per-person payment state', () => {
-    assert.deepEqual(getPaidStatus('bill123'), {});
-
-    setPersonPaidStatus('bill123', 'p1', true);
-    setPersonPaidStatus('bill123', 'p2', false);
-
-    const status = getPaidStatus('bill123');
-    assert.equal(status.p1, true);
-    assert.equal(status.p2, false);
-
-    // mergePaidStatus merges remote server status
-    const merged = mergePaidStatus('bill123', { p2: true, p3: true });
-    assert.equal(merged.p1, true);
-    assert.equal(merged.p2, true);
-    assert.equal(merged.p3, true);
-
-    const updated = getPaidStatus('bill123');
-    assert.equal(updated.p2, true);
-    assert.equal(updated.p3, true);
-
-    // Other bills remain unaffected
-    assert.deepEqual(getPaidStatus('bill999'), {});
-  });
-
-  it('7. isBillHost distinguishes bills created on this device from viewed bills', () => {
+  it('6. isBillHost distinguishes bills created on this device from viewed bills', () => {
     assert.equal(isBillHost('created123'), false);
 
     saveBillToHistory({ shareCode: 'created123', role: 'created' });
